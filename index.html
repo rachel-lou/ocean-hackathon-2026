@@ -1,25 +1,407 @@
-import { useState, useCallback, useRef } from "react";
-import {
-  AreaChart, Area, LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
-  CartesianGrid, Legend, ReferenceLine
-} from "recharts";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>California Kelp Restoration Initiative</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#0a2342;--navy2:#0d3460;--teal:#0e7490;--teal-lt:#f0f9ff;
+  --green:#16a34a;--green-lt:#f0fdf4;--green-border:#86efac;
+  --amber:#d97706;--red:#dc2626;
+  --slate:#334155;--muted:#64748b;--label:#94a3b8;
+  --border:#e2e8f0;--bg:#f8fafc;--white:#fff;
+}
+html,body{height:100%;font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+input,select,textarea{font-family:inherit;}
+input:focus,select:focus,textarea:focus{border-color:var(--teal)!important;outline:none;}
 
+/* ── LAYOUT ── */
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+#header{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 2px 16px rgba(10,35,66,0.4);}
+#header-left{display:flex;align-items:center;gap:10px;}
+.header-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid rgba(255,255,255,0.15);}
+.header-title{font-size:14px;font-weight:700;color:#fff;letter-spacing:-0.01em;}
+.header-sub{font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.09em;text-transform:uppercase;}
+#header-stats{display:flex;gap:7px;}
+.hstat{padding:5px 11px;border-radius:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);min-width:78px;}
+.hstat-label{font-size:8.5px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.07em;font-weight:600;}
+.hstat-val{font-size:17px;font-weight:800;line-height:1.3;margin-top:1px;}
+.hstat-unit{font-size:9px;font-weight:500;color:rgba(255,255,255,0.35);margin-left:2px;}
+
+#tabnav{background:var(--white);border-bottom:1px solid var(--border);display:flex;padding:0 20px;flex-shrink:0;}
+.tab{padding:12px 18px;background:transparent;border:none;border-bottom:2.5px solid transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--label);display:flex;align-items:center;gap:7px;margin-bottom:-1px;white-space:nowrap;font-family:inherit;}
+.tab.active{font-weight:700;color:var(--navy);border-bottom-color:var(--teal);}
+.tab:hover{color:var(--slate);}
+
+#pages{flex:1;min-height:0;overflow:hidden;}
+.page{display:none;height:100%;}
+.page.active{display:flex;flex-direction:column;}
+
+/* ── CARDS ── */
+.card{background:var(--white);border-radius:12px;padding:14px 16px;border:1px solid var(--border);}
+.clabel{font-size:10px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:6px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+
+/* ── PAGE 1 ── */
+#p1{flex-direction:row!important;}
+#p1-map{width:52%;background:#c8e6f4;border-right:1px solid var(--border);position:relative;overflow:hidden;}
+#p1-map svg{display:block;width:100%;height:100%;}
+#map-legend{position:absolute;bottom:12px;left:12px;background:rgba(255,255,255,0.95);border-radius:8px;padding:8px 12px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+#map-legend h4{font-size:9px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px;}
+.leg-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;font-size:10px;}
+.leg-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.leg-row span{color:#475569;font-weight:500;}
+.leg-hint{margin-top:6px;padding-top:6px;border-top:1px solid #f1f5f9;font-size:9px;color:var(--label);}
+
+#p1-detail{width:48%;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.site-breadcrumb{font-size:11px;color:var(--label);margin-bottom:2px;}
+.site-breadcrumb .crumb{cursor:pointer;font-weight:400;color:var(--label);}
+.site-breadcrumb .crumb.active{font-weight:700;color:var(--navy);border-bottom:2px solid var(--teal);}
+.site-breadcrumb .sep{margin:0 4px;opacity:0.4;}
+.site-name{font-size:20px;font-weight:700;color:var(--navy);margin:4px 0 2px;letter-spacing:-0.02em;}
+.site-sub{font-size:12px;color:var(--muted);}
+.cond-tile{background:var(--white);border-radius:12px;padding:10px 12px;border:1px solid var(--border);}
+.cond-lbl{font-size:9px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:3px;}
+.cond-val{font-size:16px;font-weight:800;color:var(--navy);line-height:1;}
+.cond-sub{font-size:11px;color:var(--label);margin-top:2px;}
+.suit-bar-wrap{height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden;margin-bottom:10px;}
+.suit-bar{height:100%;border-radius:4px;transition:width 0.8s ease;}
+.suit-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;}
+.suit-row{font-size:11px;display:flex;justify-content:space-between;}
+.suit-row .sk{color:var(--label);}
+.suit-row .sv{color:var(--slate);font-weight:500;}
+.activity-box{text-align:center;padding:8px 6px;background:var(--bg);border-radius:8px;border:1px solid var(--border);}
+.activity-num{font-size:20px;font-weight:800;color:var(--navy);line-height:1;}
+.activity-lbl{font-size:9px;color:var(--label);font-weight:600;margin-top:3px;text-transform:uppercase;letter-spacing:0.06em;}
+.exit-card{padding:8px 10px;border-radius:8px;background:var(--bg);margin-bottom:6px;border:1px solid var(--border);}
+.exit-meta{display:flex;justify-content:space-between;margin-bottom:4px;}
+.exit-date{font-size:10px;color:var(--label);font-family:monospace;}
+.exit-badge{font-size:10px;font-weight:600;padding:1px 7px;border-radius:10px;}
+.exit-text{font-size:12px;color:var(--slate);line-height:1.5;}
+
+/* ── PAGE 2 ── */
+#p2{flex-direction:row!important;}
+#p2-sidebar{width:30%;background:#f0f4f8;border-right:1px solid var(--border);padding:20px 16px;overflow-y:auto;flex-shrink:0;}
+#p2-form{flex:1;overflow-y:auto;padding:20px 24px;background:var(--white);}
+.site-option{padding:10px 12px;border-radius:10px;cursor:pointer;margin-bottom:8px;background:var(--white);border:1px solid var(--border);color:var(--navy);}
+.site-option.sel{background:var(--navy);border-color:var(--navy);color:var(--white);}
+.site-option .so-name{font-weight:600;font-size:13px;}
+.site-option .so-sub{font-size:11px;opacity:0.6;margin-top:2px;}
+.import-panel{margin-top:20px;padding:14px;background:var(--white);border-radius:10px;border:1px solid var(--border);}
+.import-btn{padding:9px 10px;border-radius:7px;border:1px solid var(--border);background:var(--white);cursor:pointer;text-align:left;width:100%;margin-bottom:6px;transition:background 0.15s;}
+.import-btn:hover{background:var(--bg);}
+.import-btn .ib-title{font-size:11px;font-weight:600;color:var(--navy);}
+.import-btn .ib-fmt{font-size:9px;color:var(--label);margin-top:2px;}
+.import-btn.uploading .ib-title{color:var(--label);}
+.import-success{padding:6px 10px;background:var(--green-lt);border-radius:6px;border:1px solid var(--green-border);font-size:11px;color:#14532d;margin-bottom:8px;}
+.section-title{font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #f1f5f9;}
+.field{display:flex;flex-direction:column;margin-bottom:0;}
+.field label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;display:block;margin-bottom:4px;}
+.field input,.field select,.field textarea{width:100%;background:var(--white);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--navy);outline:none;font-family:inherit;}
+.field textarea{resize:vertical;}
+.field input.autofilled{background:#f0fdf4;border-color:#86efac;}
+.cell-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:#f0f9ff;border-radius:10px;padding:12px;border:1px solid #bae6fd;margin-bottom:10px;}
+.cell-box{border-radius:8px;padding:8px;border:1.5px solid var(--border);background:rgba(14,116,144,0.04);transition:all 0.2s;}
+.cell-box.has-val{border-color:var(--teal);}
+.cell-box .cell-label{font-size:10px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+.cell-box input{width:100%;text-align:center;padding:6px 4px;font-size:14px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:#fafafa;outline:none;}
+.cell-box.has-val input{border-color:var(--teal);}
+.cell-box .cell-count{font-size:9px;color:var(--teal);text-align:center;margin-top:3px;font-weight:600;}
+.total-bar{padding:8px 12px;background:var(--green-lt);border-radius:8px;border:1px solid var(--green-border);display:flex;justify-content:space-between;align-items:center;}
+.total-bar .tl{font-size:12px;color:#14532d;font-weight:600;}
+.total-bar .tv{font-size:18px;font-weight:800;color:#15803d;}
+.submit-btn{padding:12px 32px;border-radius:10px;background:var(--navy);color:var(--white);border:none;cursor:pointer;font-size:15px;font-weight:700;font-family:inherit;}
+.submit-btn:hover{background:var(--teal);}
+.success-screen{display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:40px;text-align:center;}
+.success-screen.show{display:flex;}
+.success-emoji{font-size:48px;}
+.success-title{font-size:22px;font-weight:700;color:var(--navy);}
+.success-msg{font-size:14px;color:var(--muted);max-width:360px;line-height:1.6;}
+.log-again-btn{padding:10px 28px;border-radius:8px;background:var(--navy);color:var(--white);border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
+
+/* ── PAGE 3 ── */
+#p3{overflow-y:auto;padding:20px;background:var(--bg);}
+.site-tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+.site-tab{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--white);color:var(--muted);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
+.site-tab.active{background:var(--navy);border-color:var(--navy);color:var(--white);}
+.export-btns{margin-left:auto;display:flex;gap:8px;}
+.export-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--teal);background:var(--teal-lt);color:var(--teal);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;}
+.export-btn.json{border-color:#6b21a8;background:#fdf4ff;color:#6b21a8;}
+.p3-row{display:grid;gap:14px;margin-bottom:14px;}
+.p3-row.r2{grid-template-columns:250px 1fr;}
+.p3-row.r3{grid-template-columns:1fr 260px;}
+.p3-row.r4{grid-template-columns:1fr 1fr;}
+.chart-wrap{position:relative;}
+.replay-controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.play-btn{padding:4px 12px;border-radius:6px;border:1px solid var(--navy);background:var(--navy);color:var(--white);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;}
+.play-btn.stop{background:#fef2f2;color:var(--red);}
+input[type=range]{width:100%;margin-top:6px;accent-color:var(--green);}
+.replay-timestamps{display:flex;justify-content:space-between;font-size:9px;color:var(--label);margin-top:2px;}
+.replay-current{color:var(--green);font-weight:600;}
+.replay-legend{margin-top:8px;display:flex;gap:10px;font-size:9px;}
+.replay-legend span{display:flex;align-items:center;gap:4px;}
+.replay-legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+.eff-boxes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;}
+.eff-box{text-align:center;padding:10px 8px;background:var(--bg);border-radius:8px;border:1px solid var(--border);}
+.eff-num{font-size:20px;font-weight:800;color:var(--navy);line-height:1;}
+.eff-unit{font-size:10px;font-weight:400;color:var(--label);margin-left:2px;}
+.eff-lbl{font-size:9px;color:var(--label);font-weight:600;margin-top:3px;text-transform:uppercase;letter-spacing:0.05em;}
+.site-compare-row{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid #f1f5f9;}
+.site-compare-row .scn{color:var(--slate);font-weight:500;}
+.site-compare-row .scv{color:var(--navy);font-weight:600;}
+.cell-totals{margin-top:8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.ct-box{text-align:center;padding:4px;background:var(--bg);border-radius:5px;}
+.ct-lbl{font-size:10px;color:var(--label);font-weight:600;}
+.ct-val{font-size:12px;font-weight:700;color:var(--navy);}
+.chart-hint{font-size:10px;color:var(--label);margin-top:4px;}
+
+/* ── FOOTER ── */
+#footer{background:var(--navy);padding:5px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+#footer p{font-size:8.5px;}
+#footer p:first-child{color:rgba(255,255,255,0.3);}
+#footer p:last-child{color:rgba(255,255,255,0.2);}
+
+@media(max-width:900px){
+  #header-stats{display:none;}
+  #p1-map{width:45%;}#p1-detail{width:55%;}
+  .p3-row.r2,.p3-row.r3,.p3-row.r4{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<header id="header">
+  <div id="header-left">
+    <div class="header-icon">🌿</div>
+    <div>
+      <div class="header-title">California Kelp Restoration Initiative</div>
+      <div class="header-sub">Mendocino County Field Operations Dashboard</div>
+    </div>
+  </div>
+  <div id="header-stats">
+    <div class="hstat"><div class="hstat-label">Diver-Hours</div><div class="hstat-val" style="color:#38bdf8" id="hs-hrs">—<span class="hstat-unit">hrs</span></div></div>
+    <div class="hstat"><div class="hstat-label">Urchins Culled</div><div class="hstat-val" style="color:#fb923c" id="hs-urchins">—</div></div>
+    <div class="hstat"><div class="hstat-label">Ha Recovered</div><div class="hstat-val" style="color:#86efac" id="hs-ha">—<span class="hstat-unit">ha</span></div></div>
+    <div class="hstat"><div class="hstat-label">Total Dives</div><div class="hstat-val" style="color:#c084fc" id="hs-dives">—</div></div>
+  </div>
+</header>
+
+<!-- TAB NAV -->
+<nav id="tabnav">
+  <button class="tab active" data-tab="p1">🗺 Site Status &amp; Dive Planning</button>
+  <button class="tab" data-tab="p2">🤿 Dive Input</button>
+  <button class="tab" data-tab="p3">📊 Impact &amp; Long-Term Evaluation</button>
+</nav>
+
+<!-- PAGES -->
+<div id="pages">
+
+  <!-- PAGE 1 -->
+  <div class="page active" id="p1">
+    <div id="p1-map">
+      <svg id="coast-map" viewBox="0 0 480 360" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="map-legend">
+        <h4>Dive Suitability</h4>
+        <div class="leg-row"><span class="leg-dot" style="background:#16a34a"></span><span>Excellent</span></div>
+        <div class="leg-row"><span class="leg-dot" style="background:#0e7490"></span><span>Good</span></div>
+        <div class="leg-row"><span class="leg-dot" style="background:#d97706"></span><span>Marginal</span></div>
+        <div class="leg-row"><span class="leg-dot" style="background:#dc2626"></span><span>Poor</span></div>
+        <div class="leg-hint">Click site to view details</div>
+      </div>
+    </div>
+    <div id="p1-detail">
+      <div>
+        <div class="site-breadcrumb" id="p1-breadcrumb"></div>
+        <div class="site-name" id="p1-sitename"></div>
+        <div class="site-sub" id="p1-sitesub"></div>
+      </div>
+      <div class="grid4" id="p1-condtiles"></div>
+      <div class="card" id="p1-suitcard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="clabel" style="margin:0">Dive Suitability Today</span>
+          <span id="p1-suit-label" style="font-size:13px;font-weight:700;"></span>
+        </div>
+        <div class="suit-bar-wrap"><div class="suit-bar" id="p1-suit-bar"></div></div>
+        <div class="suit-grid" id="p1-suit-grid"></div>
+      </div>
+      <div class="card">
+        <span class="clabel">90-Day Activity Summary</span>
+        <div class="grid3" id="p1-activity" style="margin-bottom:12px;"></div>
+        <div id="p1-lastdive" style="font-size:11px;color:var(--muted);"></div>
+      </div>
+      <div class="card">
+        <span class="clabel">Recent Exit Form Comments</span>
+        <div id="p1-comments"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 2 -->
+  <div class="page" id="p2">
+    <div id="p2-sidebar">
+      <div class="clabel" style="margin-bottom:12px;">Select Site</div>
+      <div id="p2-sites"></div>
+      <div class="import-panel">
+        <div class="clabel">Import Dive Data</div>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Auto-fill from your dive computer or app. Date, depth, bottom time and water temp pre-populated.</p>
+        <div id="import-success" class="import-success" style="display:none;"></div>
+        <button class="import-btn" onclick="simulateImport('Garmin/Suunto')"><div class="ib-title">🤿 Garmin / Suunto Watch</div><div class="ib-fmt">UDDF, Garmin FIT</div></button>
+        <button class="import-btn" onclick="simulateImport('PADI')"><div class="ib-title">📱 PADI Dive Log App</div><div class="ib-fmt">PADI JSON export</div></button>
+        <button class="import-btn" onclick="simulateImport('Subsurface')"><div class="ib-title">🌊 Subsurface / DiveLogs</div><div class="ib-fmt">UDDF, UDCF</div></button>
+        <button class="import-btn" onclick="document.getElementById('uddf-upload').click()">
+          <div class="ib-title">📎 Upload UDDF / CSV / FIT</div>
+          <div class="ib-fmt">Universal Dive Data Format</div>
+        </button>
+        <input type="file" id="uddf-upload" accept=".uddf,.csv,.xml,.fit" style="display:none" onchange="simulateImport('uploaded file')"/>
+      </div>
+    </div>
+    <div id="p2-form">
+      <div id="form-inner">
+        <h2 style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:4px;">Post-Dive Exit Form</h2>
+        <p id="form-subtitle" style="font-size:12px;color:var(--muted);margin-bottom:20px;"></p>
+        <div style="margin-bottom:18px;">
+          <div class="section-title">Diver Information</div>
+          <div class="grid3">
+            <div class="field"><label>Lead Diver Name *</label><input type="text" id="f-name" placeholder="Full name"/></div>
+            <div class="field"><label>Email</label><input type="email" id="f-email" placeholder="you@example.com"/></div>
+            <div class="field"><label>Total Divers in Group *</label><input type="number" id="f-group" min="1" placeholder="Including yourself"/></div>
+          </div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:14px 16px;border:1px solid var(--border);margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <span style="font-size:12px;font-weight:700;color:var(--navy);">Dive Metadata</span>
+            <span id="import-tag" style="font-size:10px;color:var(--label);font-style:italic;">Use import ← to auto-fill</span>
+          </div>
+          <div class="grid4">
+            <div class="field"><label>Dive Date *</label><input type="date" id="f-date"/></div>
+            <div class="field"><label>Max Depth (ft)</label><input type="number" id="f-depth" placeholder="e.g. 32"/></div>
+            <div class="field"><label>Bottom Time (min)</label><input type="number" id="f-time" placeholder="e.g. 48"/></div>
+            <div class="field"><label>Water Temp (°F)</label><input type="number" id="f-temp" placeholder="e.g. 53"/></div>
+          </div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <div class="section-title">Dive Conditions</div>
+          <div class="grid3">
+            <div class="field"><label>Visibility (ft)</label><input type="number" id="f-vis" placeholder="e.g. 18"/></div>
+            <div class="field"><label>Surge</label>
+              <select id="f-surge">
+                <option value="light">Light</option>
+                <option value="moderate" selected>Moderate</option>
+                <option value="moderate-heavy">Moderate-Heavy</option>
+                <option value="heavy">Heavy</option>
+              </select>
+            </div>
+            <div class="field"><label>Exit Conditions</label>
+              <select id="f-exit">
+                <option>Excellent</option>
+                <option selected>Good</option>
+                <option>Fair</option>
+                <option>Difficult</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <div class="section-title">Urchins Culled by Cell *</div>
+          <p style="font-size:11px;color:var(--label);margin-bottom:10px;">Enter count per cell worked. Leave blank if not dived.</p>
+          <div class="cell-grid" id="cell-inputs"></div>
+          <div class="total-bar"><span class="tl">Session Total</span><span class="tv" id="cell-total">0 urchins</span></div>
+        </div>
+        <div class="field" style="margin-bottom:24px;"><label>Field Notes &amp; Observations</label>
+          <textarea id="f-comments" rows="3" placeholder="Kelp recruits observed, unusual species, GPS coords, substrate notes…"></textarea>
+        </div>
+        <button class="submit-btn" onclick="submitForm()">Submit Dive Log →</button>
+      </div>
+      <div class="success-screen" id="success-screen">
+        <div class="success-emoji">🌿</div>
+        <div class="success-title">Dive logged!</div>
+        <div class="success-msg" id="success-msg"></div>
+        <button class="log-again-btn" onclick="resetForm()">Log Another Dive</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3 -->
+  <div class="page" id="p3">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;" id="p3-tabs">
+      <div class="export-btns">
+        <button class="export-btn" onclick="exportCSV()">↓ CSV</button>
+        <button class="export-btn json" onclick="exportJSON()">↓ JSON</button>
+      </div>
+    </div>
+    <div class="p3-row r2">
+      <div class="card">
+        <span class="clabel" id="p3-cell-title">Cell Activity</span>
+        <svg id="cell-map-svg" viewBox="0 0 240 190" width="100%" height="190"></svg>
+        <div class="cell-totals" id="p3-cell-totals"></div>
+      </div>
+      <div class="card">
+        <span class="clabel" id="p3-canopy-title">Canopy Recovery — Full History</span>
+        <div class="chart-wrap"><canvas id="canopy-chart" height="195"></canvas></div>
+        <div class="chart-hint">Teal lines = dive events · Gray dashed = loss period</div>
+      </div>
+    </div>
+    <div class="p3-row r3">
+      <div class="card">
+        <span class="clabel">Urchins Removed per Dive</span>
+        <div class="chart-wrap"><canvas id="urchin-chart" height="155"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="replay-controls">
+          <span class="clabel" style="margin:0">Kelp Recovery Replay</span>
+          <button class="play-btn" id="play-btn" onclick="togglePlay()">▶ Play</button>
+        </div>
+        <svg id="replay-svg" viewBox="0 0 240 180" width="100%" height="180"></svg>
+        <input type="range" id="replay-slider" min="0" value="0" oninput="onSlider(this.value)"/>
+        <div class="replay-timestamps"><span id="rt-start"></span><span class="replay-current" id="rt-cur"></span><span id="rt-end"></span></div>
+        <div class="replay-legend">
+          <span><span class="dot" style="background:rgba(22,163,74,0.5)"></span>Live canopy</span>
+          <span><span class="dot" style="background:rgba(148,163,184,0.4)"></span>Historical loss</span>
+        </div>
+      </div>
+    </div>
+    <div class="p3-row r4">
+      <div class="card">
+        <span class="clabel">Diver-Hours → Kelp Hectares Recovered</span>
+        <div class="eff-boxes" id="p3-eff-boxes"></div>
+        <div class="chart-wrap"><canvas id="cumul-chart" height="100"></canvas></div>
+        <div class="chart-hint">Cumulative urchins removed over program lifetime</div>
+      </div>
+      <div class="card">
+        <span class="clabel">Cross-Site Canopy Comparison</span>
+        <div class="chart-wrap"><canvas id="compare-chart" height="150"></canvas></div>
+        <div id="p3-compare-list" style="margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /pages -->
+
+<footer id="footer">
+  <p>Canopy data: KelpWatch / Landsat · Dive data: field logs · Mendocino County, CA</p>
+  <p>California Kelp Restoration Initiative · Data through Jun 2024</p>
+</footer>
+</div><!-- /app -->
+
+<script>
 // ═══════════════════════════════════════════════════════════════════════════
-// MOCK DATA — replace block with API; structure preserved
+// DATA
 // ═══════════════════════════════════════════════════════════════════════════
 const CELLS = ["A","B","C","D","E","F"];
-
 const SITES = {
-  caspar: {
-    id:"caspar", name:"Caspar Cove", lat:39.357, lng:-123.818, depthRange:"8–42 ft",
-    canopy:[
-      {month:"Jan 22",ha:0.2},{month:"Apr 22",ha:0.3},{month:"Jul 22",ha:0.3},{month:"Oct 22",ha:0.35},
-      {month:"Jan 23",ha:0.4},{month:"Apr 23",ha:0.5},{month:"Jul 23",ha:1.1},{month:"Oct 23",ha:2.3},
-      {month:"Jan 24",ha:3.8},{month:"Apr 24",ha:5.1},{month:"Jun 24",ha:5.6},
-    ],
-    // canopyDied: periods where kelp cover fell (for gray overlay on replay)
-    canopyDied:[{start:"Jan 22",end:"Apr 23",ha:0.3}],
+  caspar:{id:"caspar",name:"Caspar Cove",lat:39.357,lng:-123.818,depthRange:"8–42 ft",
+    canopy:[{m:"Jan 22",ha:0.2},{m:"Apr 22",ha:0.3},{m:"Jul 22",ha:0.3},{m:"Oct 22",ha:0.35},{m:"Jan 23",ha:0.4},{m:"Apr 23",ha:0.5},{m:"Jul 23",ha:1.1},{m:"Oct 23",ha:2.3},{m:"Jan 24",ha:3.8},{m:"Apr 24",ha:5.1},{m:"Jun 24",ha:5.6}],
+    canopyDied:[{start:"Jan 22",end:"Apr 23"}],
     dives:[
       {date:"2023-02-11",divers:6,bottomTime:52,maxDepth:28,waterTemp:52,visibility:18,surge:"moderate",cells:{A:180,B:130},comments:"Dense barren in A. Great vis, mild surge.",exitConditions:"Good"},
       {date:"2023-03-04",divers:8,bottomTime:48,maxDepth:32,waterTemp:51,visibility:22,surge:"light",cells:{A:220,B:200},comments:"Kelp recruits spotted at NW edge Cell A.",exitConditions:"Excellent"},
@@ -32,17 +414,11 @@ const SITES = {
       {date:"2024-05-18",divers:5,bottomTime:48,maxDepth:29,waterTemp:54,visibility:22,surge:"light",cells:{A:100,C:105},comments:"Kelp A/B looking strong. Expanded cleaning in C.",exitConditions:"Excellent"},
     ],
     conditions:{sst:54,swell:"2–3 ft @ 12s",visibility:"18–22 ft",surge:"Light–Moderate",wind:"NW 8 kts"},
-    cellGrid:{A:{lat:39.358,lng:-123.819},B:{lat:39.357,lng:-123.820},C:{lat:39.356,lng:-123.819},
-              D:{lat:39.356,lng:-123.818},E:{lat:39.357,lng:-123.817},F:{lat:39.358,lng:-123.818}},
+    cellGrid:{A:{lat:39.358,lng:-123.819},B:{lat:39.357,lng:-123.820},C:{lat:39.356,lng:-123.819},D:{lat:39.356,lng:-123.818},E:{lat:39.357,lng:-123.817},F:{lat:39.358,lng:-123.818}},
   },
-  albion: {
-    id:"albion", name:"Albion Cove", lat:39.227, lng:-123.771, depthRange:"10–35 ft",
-    canopy:[
-      {month:"Jan 22",ha:0.3},{month:"Apr 22",ha:0.4},{month:"Jul 22",ha:0.5},{month:"Oct 22",ha:0.55},
-      {month:"Jan 23",ha:0.6},{month:"Apr 23",ha:0.9},{month:"Jul 23",ha:1.8},{month:"Oct 23",ha:3.1},
-      {month:"Jan 24",ha:4.0},{month:"Apr 24",ha:4.7},{month:"Jun 24",ha:5.0},
-    ],
-    canopyDied:[{start:"Jan 22",end:"Jan 23",ha:0.4}],
+  albion:{id:"albion",name:"Albion Cove",lat:39.227,lng:-123.771,depthRange:"10–35 ft",
+    canopy:[{m:"Jan 22",ha:0.3},{m:"Apr 22",ha:0.4},{m:"Jul 22",ha:0.5},{m:"Oct 22",ha:0.55},{m:"Jan 23",ha:0.6},{m:"Apr 23",ha:0.9},{m:"Jul 23",ha:1.8},{m:"Oct 23",ha:3.1},{m:"Jan 24",ha:4.0},{m:"Apr 24",ha:4.7},{m:"Jun 24",ha:5.0}],
+    canopyDied:[{start:"Jan 22",end:"Jan 23"}],
     dives:[
       {date:"2023-03-15",divers:5,bottomTime:50,maxDepth:24,waterTemp:52,visibility:20,surge:"light",cells:{A:160,B:125},comments:"Good conditions. Solid early effort.",exitConditions:"Good"},
       {date:"2023-05-28",divers:7,bottomTime:54,maxDepth:28,waterTemp:55,visibility:22,surge:"light",cells:{A:200,B:170},comments:"Best day yet. Clear water, light surge.",exitConditions:"Excellent"},
@@ -51,1014 +427,585 @@ const SITES = {
       {date:"2024-04-30",divers:5,bottomTime:51,maxDepth:26,waterTemp:53,visibility:21,surge:"light",cells:{A:110,C:105},comments:"Canopy expanding outward from A into B.",exitConditions:"Good"},
     ],
     conditions:{sst:53,swell:"2–4 ft @ 10s",visibility:"16–20 ft",surge:"Moderate",wind:"NW 12 kts"},
-    cellGrid:{A:{lat:39.228,lng:-123.772},B:{lat:39.227,lng:-123.772},C:{lat:39.226,lng:-123.771},
-              D:{lat:39.226,lng:-123.770},E:{lat:39.227,lng:-123.770},F:{lat:39.228,lng:-123.771}},
+    cellGrid:{A:{lat:39.228,lng:-123.772},B:{lat:39.227,lng:-123.772},C:{lat:39.226,lng:-123.771},D:{lat:39.226,lng:-123.770},E:{lat:39.227,lng:-123.770},F:{lat:39.228,lng:-123.771}},
   },
-  ptcabrillo: {
-    id:"ptcabrillo", name:"Point Cabrillo", lat:39.348, lng:-123.826, depthRange:"12–50 ft",
-    canopy:[
-      {month:"Jan 22",ha:0.5},{month:"Apr 22",ha:0.45},{month:"Jul 22",ha:0.4},{month:"Oct 22",ha:0.35},
-      {month:"Jan 23",ha:0.3},{month:"Apr 23",ha:0.4},{month:"Jul 23",ha:0.6},{month:"Oct 23",ha:1.0},
-      {month:"Jan 24",ha:1.4},{month:"Apr 24",ha:1.6},{month:"Jun 24",ha:1.5},
-    ],
-    canopyDied:[{start:"Jan 22",end:"Jan 23",ha:0.5}],
+  ptcabrillo:{id:"ptcabrillo",name:"Point Cabrillo",lat:39.348,lng:-123.826,depthRange:"12–50 ft",
+    canopy:[{m:"Jan 22",ha:0.5},{m:"Apr 22",ha:0.45},{m:"Jul 22",ha:0.4},{m:"Oct 22",ha:0.35},{m:"Jan 23",ha:0.3},{m:"Apr 23",ha:0.4},{m:"Jul 23",ha:0.6},{m:"Oct 23",ha:1.0},{m:"Jan 24",ha:1.4},{m:"Apr 24",ha:1.6},{m:"Jun 24",ha:1.5}],
+    canopyDied:[{start:"Jan 22",end:"Jan 23"}],
     dives:[
       {date:"2023-04-08",divers:4,bottomTime:48,maxDepth:36,waterTemp:51,visibility:18,surge:"moderate",cells:{A:130,B:100},comments:"Deep site. Urchin density still high in D/E.",exitConditions:"Fair"},
       {date:"2023-07-22",divers:5,bottomTime:52,maxDepth:40,waterTemp:55,visibility:20,surge:"light",cells:{B:160,C:130},comments:"Extended into deeper cells. Good conditions.",exitConditions:"Good"},
       {date:"2023-11-11",divers:3,bottomTime:44,maxDepth:32,waterTemp:52,visibility:14,surge:"moderate",cells:{A:95,B:60},comments:"Small team, limited output. Need bigger crew.",exitConditions:"Fair"},
     ],
     conditions:{sst:52,swell:"3–5 ft @ 11s",visibility:"12–18 ft",surge:"Moderate–Heavy",wind:"NW 15 kts"},
-    cellGrid:{A:{lat:39.349,lng:-123.827},B:{lat:39.348,lng:-123.827},C:{lat:39.347,lng:-123.826},
-              D:{lat:39.347,lng:-123.825},E:{lat:39.348,lng:-123.825},F:{lat:39.349,lng:-123.826}},
+    cellGrid:{A:{lat:39.349,lng:-123.827},B:{lat:39.348,lng:-123.827},C:{lat:39.347,lng:-123.826},D:{lat:39.347,lng:-123.825},E:{lat:39.348,lng:-123.825},F:{lat:39.349,lng:-123.826}},
   },
-  russian: {
-    id:"russian", name:"Russian Gulch", lat:39.329, lng:-123.802, depthRange:"6–38 ft",
-    canopy:[
-      {month:"Jan 22",ha:1.2},{month:"Apr 22",ha:1.0},{month:"Jul 22",ha:0.9},{month:"Oct 22",ha:0.8},
-      {month:"Jan 23",ha:0.8},{month:"Apr 23",ha:0.6},{month:"Jul 23",ha:0.4},{month:"Oct 23",ha:0.3},
-      {month:"Jan 24",ha:0.2},{month:"Apr 24",ha:0.2},{month:"Jun 24",ha:0.1},
-    ],
-    canopyDied:[{start:"Jan 22",end:"Jun 24",ha:1.1}],
+  russian:{id:"russian",name:"Russian Gulch",lat:39.329,lng:-123.802,depthRange:"6–38 ft",
+    canopy:[{m:"Jan 22",ha:1.2},{m:"Apr 22",ha:1.0},{m:"Jul 22",ha:0.9},{m:"Oct 22",ha:0.8},{m:"Jan 23",ha:0.8},{m:"Apr 23",ha:0.6},{m:"Jul 23",ha:0.4},{m:"Oct 23",ha:0.3},{m:"Jan 24",ha:0.2},{m:"Apr 24",ha:0.2},{m:"Jun 24",ha:0.1}],
+    canopyDied:[{start:"Jan 22",end:"Jun 24"}],
     dives:[
       {date:"2023-05-14",divers:3,bottomTime:42,maxDepth:22,waterTemp:52,visibility:12,surge:"heavy",cells:{A:100,B:80},comments:"Heavy surge, limited safe work. Site declining fast.",exitConditions:"Difficult"},
     ],
     conditions:{sst:52,swell:"4–6 ft @ 10s",visibility:"10–14 ft",surge:"Heavy",wind:"NW 18 kts"},
-    cellGrid:{A:{lat:39.330,lng:-123.803},B:{lat:39.329,lng:-123.803},C:{lat:39.328,lng:-123.802},
-              D:{lat:39.328,lng:-123.801},E:{lat:39.329,lng:-123.801},F:{lat:39.330,lng:-123.802}},
+    cellGrid:{A:{lat:39.330,lng:-123.803},B:{lat:39.329,lng:-123.803},C:{lat:39.328,lng:-123.802},D:{lat:39.328,lng:-123.801},E:{lat:39.329,lng:-123.801},F:{lat:39.330,lng:-123.802}},
   },
-  noyo: {
-    id:"noyo", name:"Noyo Harbor Approach", lat:39.427, lng:-123.802, depthRange:"14–55 ft",
-    canopy:[
-      {month:"Jan 22",ha:1.3},{month:"Apr 22",ha:1.2},{month:"Jul 22",ha:1.15},{month:"Oct 22",ha:1.1},
-      {month:"Jan 23",ha:1.1},{month:"Apr 23",ha:1.0},{month:"Jul 23",ha:0.9},{month:"Oct 23",ha:0.8},
-      {month:"Jan 24",ha:0.7},{month:"Apr 24",ha:0.7},{month:"Jun 24",ha:0.6},
-    ],
-    canopyDied:[{start:"Jan 22",end:"Jun 24",ha:0.7}],
+  noyo:{id:"noyo",name:"Noyo Harbor",lat:39.427,lng:-123.802,depthRange:"14–55 ft",
+    canopy:[{m:"Jan 22",ha:1.3},{m:"Apr 22",ha:1.2},{m:"Jul 22",ha:1.15},{m:"Oct 22",ha:1.1},{m:"Jan 23",ha:1.1},{m:"Apr 23",ha:1.0},{m:"Jul 23",ha:0.9},{m:"Oct 23",ha:0.8},{m:"Jan 24",ha:0.7},{m:"Apr 24",ha:0.7},{m:"Jun 24",ha:0.6}],
+    canopyDied:[{start:"Jan 22",end:"Jun 24"}],
     dives:[],
     conditions:{sst:51,swell:"3–5 ft @ 12s",visibility:"10–15 ft",surge:"Moderate",wind:"NW 14 kts"},
-    cellGrid:{A:{lat:39.428,lng:-123.803},B:{lat:39.427,lng:-123.803},C:{lat:39.426,lng:-123.802},
-              D:{lat:39.426,lng:-123.801},E:{lat:39.427,lng:-123.801},F:{lat:39.428,lng:-123.802}},
+    cellGrid:{A:{lat:39.428,lng:-123.803},B:{lat:39.427,lng:-123.803},C:{lat:39.426,lng:-123.802},D:{lat:39.426,lng:-123.801},E:{lat:39.427,lng:-123.801},F:{lat:39.428,lng:-123.802}},
   },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
-function getDaysSince(dateStr){
-  return Math.floor((new Date("2024-06-25")-new Date(dateStr))/86400000);
+const NOW = new Date("2024-06-25");
+function daysSince(d){return Math.floor((NOW-new Date(d))/86400000);}
+function recentDives(site,days=90){const cut=NOW-days*86400000;return site.dives.filter(d=>new Date(d.date)>=cut);}
+function cellTotals(site){const t={};CELLS.forEach(c=>{t[c]=0;});site.dives.forEach(d=>Object.entries(d.cells||{}).forEach(([c,n])=>{t[c]=(t[c]||0)+n;}));return t;}
+function siteEfficiency(site){const hrs=site.dives.reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0);const gain=site.canopy[site.canopy.length-1].ha-site.canopy[0].ha;return hrs>0&&gain>0?(hrs/gain).toFixed(1):null;}
+function suitability(site){
+  const c=site.conditions;let score=100;
+  const sw=parseFloat(c.swell);if(sw>=5)score-=40;else if(sw>=3)score-=20;
+  if(c.surge==="Heavy")score-=35;else if(c.surge==="Moderate–Heavy")score-=20;else if(c.surge==="Moderate")score-=10;
+  const vis=parseInt(c.visibility);if(vis<12)score-=20;else if(vis<16)score-=8;
+  if(c.sst<50)score-=15;else if(c.sst<52)score-=5;
+  score=Math.max(0,Math.min(100,score));
+  const label=score>=75?"Excellent":score>=55?"Good":score>=35?"Marginal":"Poor";
+  const color=score>=75?"#16a34a":score>=55?"#0e7490":score>=35?"#d97706":"#dc2626";
+  return{score,label,color};
 }
-function getRecentDives(site,days=90){
-  const cut=new Date("2024-06-25")-days*86400000;
-  return site.dives.filter(d=>new Date(d.date)>=cut);
-}
-function getSiteEfficiency(site){
-  const hrs=site.dives.reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0);
-  const gain=site.canopy[site.canopy.length-1].ha-site.canopy[0].ha;
-  return hrs>0&&gain>0?(hrs/gain).toFixed(1):null;
-}
-function getTotalUrchinsByCell(site){
-  const totals={};
-  CELLS.forEach(c=>{totals[c]=0;});
-  site.dives.forEach(d=>Object.entries(d.cells||{}).forEach(([c,n])=>{totals[c]=(totals[c]||0)+n;}));
-  return totals;
-}
-function getProgramTotals(){
+function programTotals(){
   const all=Object.values(SITES);
-  return {
+  return{
     hrs:Math.round(all.flatMap(s=>s.dives).reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0)),
     urchins:all.flatMap(s=>s.dives).reduce((s,d)=>s+Object.values(d.cells||{}).reduce((a,b)=>a+b,0),0),
     ha:all.reduce((s,site)=>s+Math.max(0,site.canopy[site.canopy.length-1].ha-site.canopy[0].ha),0).toFixed(1),
     dives:all.flatMap(s=>s.dives).length,
   };
 }
-function getDiveSuitability(site){
-  const c=site.conditions;
-  const swellFt=parseFloat(c.swell);
-  let score=100;
-  if(swellFt>=5)score-=40; else if(swellFt>=3)score-=20;
-  if(c.surge==="Heavy")score-=35; else if(c.surge==="Moderate–Heavy")score-=20; else if(c.surge==="Moderate")score-=10;
-  const vis=parseInt(c.visibility);
-  if(vis<12)score-=20; else if(vis<16)score-=8;
-  if(c.sst<50)score-=15; else if(c.sst<52)score-=5;
-  score=Math.max(0,Math.min(100,score));
-  const label=score>=75?"Excellent":score>=55?"Good":score>=35?"Marginal":"Poor";
-  const color=score>=75?"#16a34a":score>=55?"#0e7490":score>=35?"#d97706":"#dc2626";
-  return{score,label,color};
-}
+const exitColor={Excellent:"#16a34a",Good:"#0e7490",Fair:"#d97706",Difficult:"#dc2626"};
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SVG MAP (shared across pages)
+// SVG MAP
 // ═══════════════════════════════════════════════════════════════════════════
 const MAP_W=480,MAP_H=360;
 const BOUNDS={latMin:39.10,latMax:39.55,lngMin:-124.02,lngMax:-123.52};
 function proj(lat,lng){
   return[
-    parseFloat(((lng-BOUNDS.lngMin)/(BOUNDS.lngMax-BOUNDS.lngMin)*MAP_W).toFixed(2)),
-    parseFloat((MAP_H-((lat-BOUNDS.latMin)/(BOUNDS.latMax-BOUNDS.latMin)*MAP_H)).toFixed(2))
+    (lng-BOUNDS.lngMin)/(BOUNDS.lngMax-BOUNDS.lngMin)*MAP_W,
+    MAP_H-((lat-BOUNDS.latMin)/(BOUNDS.latMax-BOUNDS.latMin)*MAP_H)
   ];
 }
-const COAST=[
-  [39.550,-123.690],[39.530,-123.710],[39.510,-123.730],[39.490,-123.755],
-  [39.470,-123.768],[39.450,-123.780],[39.427,-123.802],[39.410,-123.815],
-  [39.395,-123.822],[39.370,-123.826],[39.357,-123.818],[39.348,-123.826],
-  [39.340,-123.818],[39.329,-123.802],[39.315,-123.798],[39.300,-123.797],
-  [39.280,-123.787],[39.260,-123.782],[39.245,-123.775],[39.227,-123.771],
-  [39.210,-123.762],[39.190,-123.750],[39.170,-123.738],[39.150,-123.726],
-  [39.130,-123.714],[39.110,-123.700],
-];
+const COAST=[[39.550,-123.690],[39.530,-123.710],[39.510,-123.730],[39.490,-123.755],[39.470,-123.768],[39.450,-123.780],[39.427,-123.802],[39.410,-123.815],[39.395,-123.822],[39.370,-123.826],[39.357,-123.818],[39.348,-123.826],[39.340,-123.818],[39.329,-123.802],[39.315,-123.798],[39.300,-123.797],[39.280,-123.787],[39.260,-123.782],[39.245,-123.775],[39.227,-123.771],[39.210,-123.762],[39.190,-123.750],[39.170,-123.738],[39.150,-123.726],[39.130,-123.714],[39.110,-123.700]];
 
-function SiteMap({selectedId,onSelect,highlightDot,compact=false}){
-  const [hov,setHov]=useState(null);
-  const sites=Object.values(SITES);
-  const W=compact?380:MAP_W, H=compact?280:MAP_H;
-  const scale=compact?W/MAP_W:1;
+function buildMap(){
+  const svg=document.getElementById("coast-map");
+  const coastPts=COAST.map(([la,ln])=>proj(la,ln).join(",")).join(" ");
+  const landPoly=COAST.map(([la,ln])=>proj(la,ln).join(",")).join(" ")+` ${MAP_W},${MAP_H} ${MAP_W},0`;
+  const shallowPts=COAST.map(([la,ln])=>{const[x,y]=proj(la,ln-0.025);return`${x},${y}`;}).join(" ");
+  const revPts=[...COAST].reverse().map(([la,ln])=>proj(la,ln).join(",")).join(" ");
 
-  function p(lat,lng){
-    const[x,y]=proj(lat,lng);
-    return[x*scale,y*(H/MAP_H)];
-  }
+  svg.innerHTML=`
+  <defs>
+    <linearGradient id="og2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c8e6f4"/><stop offset="100%" stop-color="#a4cfe8"/></linearGradient>
+    <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e4ece0"/><stop offset="100%" stop-color="#cdd8c5"/></linearGradient>
+    <linearGradient id="sf2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#afd9f0" stop-opacity="0.65"/><stop offset="100%" stop-color="#a4cfe8" stop-opacity="0"/></linearGradient>
+    <pattern id="wg2" x="0" y="0" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M0,13 Q6.5,9 13,13 Q19.5,17 26,13" stroke="#86c4e0" stroke-width="0.35" fill="none" opacity="0.5"/></pattern>
+    <clipPath id="mc"><rect width="${MAP_W}" height="${MAP_H}"/></clipPath>
+  </defs>
+  <g clip-path="url(#mc)">
+    <rect width="${MAP_W}" height="${MAP_H}" fill="url(#og2)"/>
+    <rect width="${MAP_W}" height="${MAP_H}" fill="url(#wg2)"/>
+    <polyline points="${shallowPts} ${revPts}" fill="url(#sf2)" stroke="none"/>
+    <polygon points="${landPoly}" fill="url(#lg2)"/>
+    <polyline points="${coastPts}" fill="none" stroke="#7a9a72" stroke-width="1.6" stroke-linejoin="round"/>
+    ${[39.2,39.3,39.4,39.5].map(lat=>{const[,y]=proj(lat,-124.02);return`<text x="4" y="${y+4}" font-size="7.5" fill="#4a9ab8" opacity="0.7" font-family="monospace">${lat.toFixed(1)}°N</text>`;}).join("")}
+    <text x="60" y="${MAP_H*0.55}" font-size="11" fill="#4488a8" opacity="0.5" font-style="italic" transform="rotate(-10,60,${MAP_H*0.55})">Pacific Ocean</text>
+    <g transform="translate(${MAP_W-28},24)"><circle r="13" fill="white" opacity="0.85" stroke="#c8d4c0" stroke-width="1"/><text y="-14" text-anchor="middle" font-size="8" fill="#0a2342" font-weight="700">N</text><polygon points="0,-10 -3,0 0,3 3,0" fill="#0a2342" opacity="0.7"/><polygon points="0,10 -3,0 0,-3 3,0" fill="#94a3b8" opacity="0.5"/></g>
+    <g id="site-dots"></g>
+  </g>`;
 
-  const coastPts=COAST.map(([lat,lng])=>p(lat,lng).join(",")).join(" ");
-  const landPoly=COAST.map(([lat,lng])=>p(lat,lng).join(",")).join(" ")+` ${W},${H} ${W},0`;
-  const shallow=COAST.map(([lat,lng])=>{const[x,y]=p(lat,lng-0.025);return`${x},${y}`;}).join(" ");
-
-  return(
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{display:"block"}}>
-      <defs>
-        <linearGradient id="og" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#c8e6f4"/><stop offset="100%" stopColor="#a4cfe8"/>
-        </linearGradient>
-        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#e4ece0"/><stop offset="100%" stopColor="#cdd8c5"/>
-        </linearGradient>
-        <linearGradient id="sf" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#afd9f0" stopOpacity="0.65"/>
-          <stop offset="100%" stopColor="#a4cfe8" stopOpacity="0"/>
-        </linearGradient>
-        <pattern id="wg" x="0" y="0" width="26" height="26" patternUnits="userSpaceOnUse">
-          <path d="M0,13 Q6.5,9 13,13 Q19.5,17 26,13" stroke="#86c4e0" strokeWidth="0.35" fill="none" opacity="0.5"/>
-        </pattern>
-        <filter id="gl"><feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <clipPath id="cc"><rect width={W} height={H}/></clipPath>
-      </defs>
-      <g clipPath="url(#cc)">
-        <rect width={W} height={H} fill="url(#og)"/>
-        <rect width={W} height={H} fill="url(#wg)"/>
-        <polyline points={shallow+" "+[...COAST].reverse().map(([la,ln])=>p(la,ln).join(",")).join(" ")} fill="url(#sf)" stroke="none"/>
-        {[0.018,0.034].map((off,i)=>(
-          <polyline key={i} points={COAST.map(([la,ln])=>p(la,ln-off).join(",")).join(" ")}
-            fill="none" stroke="#5ab0d8" strokeWidth={0.45} strokeDasharray="4,7" opacity={0.35}/>
-        ))}
-        <polygon points={landPoly} fill="url(#lg)"/>
-        <polyline points={coastPts} fill="none" stroke="#7a9a72" strokeWidth={1.6} strokeLinejoin="round"/>
-        {[39.2,39.3,39.4,39.5].map(lat=>{
-          const[,y]=p(lat,-124.02);
-          return<text key={lat} x={4} y={y+4} fontSize={7.5} fill="#4a9ab8" opacity={0.7} fontFamily="monospace">{lat.toFixed(1)}°N</text>;
-        })}
-        <text x={60} y={H*0.55} fontSize={11} fill="#4488a8" opacity={0.5} fontStyle="italic" fontFamily="Georgia,serif"
-          transform={`rotate(-10,60,${H*0.55})`}>Pacific Ocean</text>
-        <g transform={`translate(${W-28},24)`}>
-          <circle r={13} fill="white" opacity={0.85} stroke="#c8d4c0" strokeWidth={1}/>
-          <text y={-14} textAnchor="middle" fontSize={8} fill="#0a2342" fontWeight="700">N</text>
-          <polygon points="0,-10 -3,0 0,3 3,0" fill="#0a2342" opacity={0.7}/>
-          <polygon points="0,10 -3,0 0,-3 3,0" fill="#94a3b8" opacity={0.5}/>
-        </g>
-        {sites.map(site=>{
-          const[mx,my]=p(site.lat,site.lng);
-          const isSel=selectedId===site.id;
-          const isHov=hov===site.id;
-          const dot=highlightDot?.(site)||"#0e7490";
-          const r=isSel?12:9;
-          const show=isSel||isHov;
-          const lw=site.name.length*5.4+12;
-          return(
-            <g key={site.id} style={{cursor:"pointer"}}
-              onClick={()=>onSelect?.(site.id)}
-              onMouseEnter={()=>setHov(site.id)}
-              onMouseLeave={()=>setHov(null)}>
-              {isSel&&<circle cx={mx} cy={my} r={r+8} fill={dot} opacity={0.18} filter="url(#gl)"/>}
-              {isSel&&<circle cx={mx} cy={my} r={r+5} fill="none" stroke={dot} strokeWidth={1.5} opacity={0.35}/>}
-              <circle cx={mx} cy={my} r={r} fill={dot} stroke={isSel?"#0a2342":"white"} strokeWidth={isSel?2.5:1.8} opacity={0.92}/>
-              <circle cx={mx-r*0.25} cy={my-r*0.25} r={r*0.3} fill="white" opacity={0.28}/>
-              {show&&(
-                <g>
-                  <rect x={mx+r+4} y={my-12} width={lw} height={16} rx={4} fill="#0a2342" opacity={0.88}/>
-                  <text x={mx+r+10} y={my+1} fontSize={9} fill="white" fontWeight="600" fontFamily="'DM Sans',sans-serif">{site.name}</text>
-                </g>
-              )}
-            </g>
-          );
-        })}
-      </g>
-    </svg>
-  );
+  renderSiteDots();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PAGE 1 — SITE STATUS + DIVE PLANNING
-// ═══════════════════════════════════════════════════════════════════════════
-function Page1({selectedSite,setSelectedSite}){
-  const site=SITES[selectedSite];
-  const recent=getRecentDives(site,90);
-  const suitability=getDiveSuitability(site);
-  const lastDive=site.dives[site.dives.length-1];
-  const canopyNow=site.canopy[site.canopy.length-1].ha;
-  const canopyPrev=site.canopy[site.canopy.length-2].ha;
-  const trend=canopyNow>canopyPrev+0.05?"↑":canopyNow<canopyPrev-0.05?"↓":"→";
-  const trendClr=trend==="↑"?"#16a34a":trend==="↓"?"#dc2626":"#64748b";
-
-  const recentComments=site.dives.slice(-3).reverse().map(d=>({date:d.date,text:d.comments,exit:d.exitConditions}));
-
-  const exitColors={Excellent:"#16a34a",Good:"#0e7490",Fair:"#d97706",Difficult:"#dc2626"};
-
-  const S={
-    card:{background:"#fff",borderRadius:12,padding:"14px 16px",border:"1px solid #e2e8f0"},
-    label:{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.07em",display:"block",marginBottom:4},
-    big:{fontSize:22,fontWeight:800,color:"#0a2342",lineHeight:1},
-  };
-
-  return(
-    <div style={{display:"flex",height:"100%",minHeight:0}}>
-      {/* LEFT: Map */}
-      <div style={{width:"52%",background:"#c8e6f4",borderRight:"1px solid #e2e8f0",position:"relative",overflow:"hidden"}}>
-        <SiteMap selectedId={selectedSite} onSelect={setSelectedSite}
-          highlightDot={s=>getDiveSuitability(s).color}/>
-        {/* Suitability legend */}
-        <div style={{position:"absolute",bottom:12,left:12,background:"rgba(255,255,255,0.95)",
-          borderRadius:8,padding:"8px 12px",border:"1px solid #e2e8f0",boxShadow:"0 2px 8px rgba(0,0,0,0.1)"}}>
-          <div style={{fontSize:9,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:6}}>Dive Suitability</div>
-          {[["#16a34a","Excellent"],["#0e7490","Good"],["#d97706","Marginal"],["#dc2626","Poor"]].map(([c,l])=>(
-            <div key={l} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,fontSize:10}}>
-              <span style={{width:8,height:8,borderRadius:"50%",background:c,display:"inline-block",flexShrink:0}}/>
-              <span style={{color:"#475569",fontWeight:500}}>{l}</span>
-            </div>
-          ))}
-          <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #f1f5f9",fontSize:9,color:"#94a3b8"}}>Click site to view details</div>
-        </div>
-      </div>
-
-      {/* RIGHT: Detail */}
-      <div style={{width:"48%",overflowY:"auto",padding:"16px",display:"flex",flexDirection:"column",gap:12,background:"#f8fafc"}}>
-
-        {/* Site name + breadcrumb */}
-        <div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:2}}>
-            {Object.values(SITES).map((s,i)=>(
-              <span key={s.id}>
-                {i>0&&<span style={{margin:"0 4px",opacity:0.4}}>·</span>}
-                <span onClick={()=>setSelectedSite(s.id)}
-                  style={{cursor:"pointer",color:s.id===selectedSite?"#0a2342":"#94a3b8",
-                    fontWeight:s.id===selectedSite?700:400,textDecoration:"underline",textDecorationColor:"transparent",
-                    borderBottom:s.id===selectedSite?"2px solid #0e7490":"none"}}>
-                  {s.name.split(" ")[0]}
-                </span>
-              </span>
-            ))}
-          </div>
-          <h2 style={{margin:"4px 0 2px",fontSize:20,fontWeight:700,color:"#0a2342",fontFamily:"'Fraunces',Georgia,serif",letterSpacing:"-0.02em"}}>
-            {site.name}
-          </h2>
-          <div style={{fontSize:12,color:"#64748b"}}>Mendocino County · {site.depthRange}</div>
-        </div>
-
-        {/* Conditions strip */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
-          {[
-            {label:"Canopy",val:`${canopyNow} ha`,sub:trend,subClr:trendClr,subBig:true},
-            {label:"Water Temp",val:`${site.conditions.sst}°F`,sub:"surface"},
-            {label:"Swell",val:site.conditions.swell.split("@")[0].trim(),sub:`@ ${site.conditions.swell.split("@")[1]?.trim()||""}`},
-            {label:"Visibility",val:site.conditions.visibility.split("–")[0].trim(),sub:"ft range"},
-          ].map(item=>(
-            <div key={item.label} style={S.card}>
-              <span style={S.label}>{item.label}</span>
-              <div style={{...S.big,fontSize:16}}>{item.val}</div>
-              <div style={{fontSize:11,color:item.subClr||"#94a3b8",fontWeight:item.subBig?700:400,marginTop:2}}>{item.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Dive suitability bar */}
-        <div style={{...S.card,padding:"12px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <span style={S.label}>Dive Suitability Today</span>
-            <span style={{fontSize:13,fontWeight:700,color:suitability.color}}>{suitability.label} ({suitability.score}/100)</span>
-          </div>
-          <div style={{height:8,background:"#f1f5f9",borderRadius:4,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${suitability.score}%`,background:suitability.color,borderRadius:4,transition:"width 0.8s ease"}}/>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 16px",marginTop:10}}>
-            {[["Surge",site.conditions.surge],["Wind",site.conditions.wind],
-              ["Visibility",site.conditions.visibility],["Swell",site.conditions.swell]].map(([l,v])=>(
-              <div key={l} style={{fontSize:11,display:"flex",justifyContent:"space-between"}}>
-                <span style={{color:"#94a3b8"}}>{l}</span>
-                <span style={{color:"#334155",fontWeight:500}}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent activity */}
-        <div style={S.card}>
-          <span style={S.label}>90-Day Activity Summary</span>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-            {[
-              {l:"Dives",v:recent.length},
-              {l:"Diver-Hrs",v:recent.reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0).toFixed(1)},
-              {l:"Urchins Culled",v:recent.reduce((s,d)=>s+Object.values(d.cells||{}).reduce((a,b)=>a+b,0),0).toLocaleString()},
-            ].map(item=>(
-              <div key={item.l} style={{textAlign:"center",padding:"8px 6px",background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
-                <div style={{fontSize:20,fontWeight:800,color:"#0a2342",lineHeight:1}}>{item.v}</div>
-                <div style={{fontSize:9,color:"#94a3b8",fontWeight:600,marginTop:3,textTransform:"uppercase",letterSpacing:"0.06em"}}>{item.l}</div>
-              </div>
-            ))}
-          </div>
-          {lastDive&&(
-            <div style={{fontSize:11,color:"#64748b"}}>
-              Last dive: <span style={{color:"#0a2342",fontWeight:600}}>{lastDive.date}</span>
-              {" "}· {getDaysSince(lastDive.date)} days ago · {lastDive.divers} divers
-            </div>
-          )}
-        </div>
-
-        {/* Exit form comments */}
-        <div style={S.card}>
-          <span style={S.label}>Recent Exit Form Comments</span>
-          {recentComments.map((c,i)=>(
-            <div key={i} style={{padding:"8px 10px",borderRadius:8,background:"#f8fafc",marginBottom:6,
-              border:"1px solid #e2e8f0"}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontSize:10,color:"#94a3b8",fontFamily:"monospace"}}>{c.date}</span>
-                <span style={{fontSize:10,fontWeight:600,padding:"1px 7px",borderRadius:10,
-                  background:`${exitColors[c.exit]}18`,color:exitColors[c.exit],
-                  border:`1px solid ${exitColors[c.exit]}44`}}>{c.exit}</span>
-              </div>
-              <div style={{fontSize:12,color:"#334155",lineHeight:1.5}}>{c.text}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PAGE 2 — DIVE INPUT / EXIT FORM
-// ═══════════════════════════════════════════════════════════════════════════
-function Page2({selectedSite,setSelectedSite}){
-  const [form,setForm]=useState({
-    site:selectedSite,name:"",email:"",groupSize:"",
-    date:"",maxDepth:"",bottomTime:"",waterTemp:"",
-    visibility:"",surge:"moderate",
-    cells:{A:"",B:"",C:"",D:"",E:"",F:""},
-    comments:"",exitConditions:"Good",
-    importSource:null,
+function renderSiteDots(){
+  const g=document.getElementById("site-dots");
+  if(!g)return;
+  g.innerHTML="";
+  Object.values(SITES).forEach(site=>{
+    const[mx,my]=proj(site.lat,site.lng);
+    const suit=suitability(site);
+    const isSel=site.id===currentSite;
+    const r=isSel?12:9;
+    const el=document.createElementNS("http://www.w3.org/2000/svg","g");
+    el.style.cursor="pointer";
+    el.addEventListener("click",()=>selectSite(site.id));
+    el.addEventListener("mouseenter",()=>{
+      const tip=el.querySelector(".tip");if(tip)tip.style.display="block";
+    });
+    el.addEventListener("mouseleave",()=>{
+      const tip=el.querySelector(".tip");if(tip)tip.style.display="none";
+    });
+    const lw=site.name.length*5.4+12;
+    el.innerHTML=`
+      ${isSel?`<circle cx="${mx}" cy="${my}" r="${r+8}" fill="${suit.color}" opacity="0.18"/>
+               <circle cx="${mx}" cy="${my}" r="${r+5}" fill="none" stroke="${suit.color}" stroke-width="1.5" opacity="0.35"/>`:``}
+      <circle cx="${mx}" cy="${my}" r="${r}" fill="${suit.color}" stroke="${isSel?"#0a2342":"white"}" stroke-width="${isSel?2.5:1.8}" opacity="0.92"/>
+      <circle cx="${mx-r*0.25}" cy="${my-r*0.25}" r="${r*0.3}" fill="white" opacity="0.28"/>
+      <g class="tip" style="display:none">
+        <rect x="${mx+r+4}" y="${my-12}" width="${lw}" height="16" rx="4" fill="#0a2342" opacity="0.88"/>
+        <text x="${mx+r+10}" y="${my+1}" font-size="9" fill="white" font-weight="600">${site.name}</text>
+      </g>`;
+    g.appendChild(el);
   });
-  const [submitted,setSubmitted]=useState(false);
-  const [importing,setImporting]=useState(false);
-  const fileRef=useRef();
-
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const setCell=(c,v)=>setForm(f=>({...f,cells:{...f.cells,[c]:v}}));
-
-  // Simulate watch/PADI import filling dive metadata
-  function simulateWatchImport(source){
-    setImporting(true);
-    setTimeout(()=>{
-      setForm(f=>({...f,
-        date:"2024-06-25",maxDepth:"31",bottomTime:"52",waterTemp:"54",
-        importSource:source,
-      }));
-      setImporting(false);
-    },1200);
-  }
-
-  const inputSty={
-    width:"100%",background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,
-    padding:"8px 12px",fontSize:13,color:"#0a2342",outline:"none",fontFamily:"inherit",
-  };
-  const labelSty={fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.07em",display:"block",marginBottom:4};
-  const row={display:"flex",flexDirection:"column"};
-
-  if(submitted){
-    const total=Object.values(form.cells).reduce((s,v)=>s+(parseInt(v)||0),0);
-    return(
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",flexDirection:"column",gap:16,padding:40}}>
-        <div style={{fontSize:48}}>🌿</div>
-        <div style={{fontSize:22,fontWeight:700,color:"#0a2342",fontFamily:"'Fraunces',Georgia,serif"}}>Dive logged!</div>
-        <div style={{fontSize:14,color:"#64748b",textAlign:"center",maxWidth:360}}>
-          <strong style={{color:"#0a2342"}}>{total.toLocaleString()}</strong> urchins removed at <strong style={{color:"#0a2342"}}>{SITES[form.site]?.name}</strong> on {form.date}.
-          Exit conditions: <strong style={{color:"#0a2342"}}>{form.exitConditions}</strong>.
-        </div>
-        <button onClick={()=>{setSubmitted(false);setForm(f=>({...f,cells:{A:"",B:"",C:"",D:"",E:"",F:""},comments:"",name:"",email:"",groupSize:""}));}}
-          style={{padding:"10px 28px",borderRadius:8,background:"#0a2342",color:"white",border:"none",cursor:"pointer",fontSize:14,fontWeight:600}}>
-          Log Another Dive
-        </button>
-      </div>
-    );
-  }
-
-  return(
-    <div style={{display:"flex",height:"100%",minHeight:0}}>
-      {/* LEFT: site selector context */}
-      <div style={{width:"30%",background:"#f0f4f8",borderRight:"1px solid #e2e8f0",padding:"20px 16px",overflowY:"auto"}}>
-        <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12}}>Select Site</div>
-        {Object.values(SITES).map(s=>(
-          <div key={s.id} onClick={()=>{setSelectedSite(s.id);set("site",s.id);}}
-            style={{padding:"10px 12px",borderRadius:10,cursor:"pointer",marginBottom:8,
-              background:form.site===s.id?"#0a2342":"white",
-              border:`1px solid ${form.site===s.id?"#0a2342":"#e2e8f0"}`,
-              color:form.site===s.id?"white":"#0a2342"}}>
-            <div style={{fontWeight:600,fontSize:13}}>{s.name}</div>
-            <div style={{fontSize:11,opacity:0.6,marginTop:2}}>{s.depthRange}</div>
-          </div>
-        ))}
-
-        <div style={{marginTop:20,padding:"14px",background:"white",borderRadius:10,border:"1px solid #e2e8f0"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10}}>
-            Import Dive Data
-          </div>
-          <div style={{fontSize:11,color:"#64748b",marginBottom:10,lineHeight:1.5}}>
-            Auto-fill dive metadata from your dive computer or log.
-          </div>
-          {form.importSource&&(
-            <div style={{padding:"6px 10px",background:"#f0fdf4",borderRadius:6,border:"1px solid #86efac",
-              fontSize:11,color:"#14532d",marginBottom:8}}>
-              ✓ Imported from {form.importSource}
-            </div>
-          )}
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {[["🤿 Garmin / Suunto Watch","Garmin/Suunto"],["📱 PADI Dive Log","PADI"],["📁 UDDF File","UDDF file"]].map(([label,src])=>(
-              <button key={src} onClick={()=>simulateWatchImport(src)} disabled={importing}
-                style={{padding:"8px 10px",borderRadius:7,border:"1px solid #e2e8f0",background:importing?"#f8fafc":"white",
-                  cursor:importing?"not-allowed":"pointer",fontSize:11,fontWeight:500,
-                  color:importing?"#94a3b8":"#0a2342",textAlign:"left"}}>
-                {importing?`⏳ Importing…`:label}
-              </button>
-            ))}
-            <button onClick={()=>fileRef.current?.click()}
-              style={{padding:"8px 10px",borderRadius:7,border:"1px dashed #cbd5e1",background:"#f8fafc",
-                cursor:"pointer",fontSize:11,fontWeight:500,color:"#64748b",textAlign:"left"}}>
-              📎 Upload UDDF / CSV file
-            </button>
-            <input ref={fileRef} type="file" accept=".uddf,.csv,.xml" style={{display:"none"}}
-              onChange={()=>simulateWatchImport("uploaded file")}/>
-          </div>
-          <div style={{marginTop:10,fontSize:9,color:"#94a3b8",lineHeight:1.5}}>
-            Supported: UDDF (Universal Dive Data Format), Garmin FIT, Suunto DM, PADI app export, CSV
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT: Form */}
-      <div style={{flex:1,overflowY:"auto",padding:"20px 24px",background:"#fff"}}>
-        <h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:700,color:"#0a2342",fontFamily:"'Fraunces',Georgia,serif"}}>
-          Post-Dive Exit Form
-        </h2>
-        <p style={{margin:"0 0 20px",fontSize:12,color:"#64748b"}}>
-          {SITES[form.site]?.name} · Complete after each cull dive
-        </p>
-
-        {/* Diver info */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
-          <div style={row}><label style={labelSty}>Diver Name *</label>
-            <input style={inputSty} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Full name"/></div>
-          <div style={row}><label style={labelSty}>Email</label>
-            <input style={inputSty} value={form.email} onChange={e=>set("email",e.target.value)} placeholder="you@example.com"/></div>
-          <div style={row}><label style={labelSty}>Divers in Group *</label>
-            <input style={{...inputSty}} type="number" min="1" value={form.groupSize} onChange={e=>set("groupSize",e.target.value)} placeholder="e.g. 4"/></div>
-        </div>
-
-        {/* Dive metadata — auto-filled by watch import */}
-        <div style={{background:"#f8fafc",borderRadius:10,padding:"14px 16px",border:"1px solid #e2e8f0",marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <span style={{fontSize:12,fontWeight:700,color:"#0a2342"}}>Dive Metadata</span>
-            {form.importSource?(
-              <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:"#f0fdf4",
-                color:"#14532d",border:"1px solid #86efac"}}>✓ Auto-filled · {form.importSource}</span>
-            ):(
-              <span style={{fontSize:10,color:"#94a3b8"}}>Auto-filled by watch import ↑</span>
-            )}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12}}>
-            {[
-              {k:"date",label:"Date *",type:"date",ph:""},
-              {k:"maxDepth",label:"Max Depth (ft)",type:"number",ph:"e.g. 32"},
-              {k:"bottomTime",label:"Bottom Time (min)",type:"number",ph:"e.g. 48"},
-              {k:"waterTemp",label:"Water Temp (°F)",type:"number",ph:"e.g. 53"},
-            ].map(f=>(
-              <div key={f.k} style={row}>
-                <label style={labelSty}>{f.label}</label>
-                <input style={{...inputSty,background:form.importSource&&form[f.k]?"#f0fdf4":"white",
-                  borderColor:form.importSource&&form[f.k]?"#86efac":"#e2e8f0"}}
-                  type={f.type} value={form[f.k]} onChange={e=>set(f.k,e.target.value)} placeholder={f.ph}/>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dive conditions */}
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#0a2342",marginBottom:10}}>Dive Conditions</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <div style={row}><label style={labelSty}>Visibility (ft)</label>
-              <input style={inputSty} type="number" value={form.visibility} onChange={e=>set("visibility",e.target.value)} placeholder="e.g. 18"/></div>
-            <div style={row}><label style={labelSty}>Surge</label>
-              <select style={inputSty} value={form.surge} onChange={e=>set("surge",e.target.value)}>
-                {["light","moderate","moderate-heavy","heavy"].map(o=>(
-                  <option key={o} value={o}>{o.charAt(0).toUpperCase()+o.slice(1)}</option>
-                ))}
-              </select></div>
-          </div>
-        </div>
-
-        {/* Cell urchin counts */}
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#0a2342",marginBottom:4}}>Urchins Culled by Cell *</div>
-          <div style={{fontSize:11,color:"#94a3b8",marginBottom:10}}>Enter count for each cell worked. Leave blank if cell not dived.</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8}}>
-            {CELLS.map(c=>(
-              <div key={c} style={{textAlign:"center"}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#0a2342",marginBottom:4}}>Cell {c}</div>
-                <input style={{...inputSty,textAlign:"center",padding:"8px 4px"}}
-                  type="number" min="0" value={form.cells[c]} onChange={e=>setCell(c,e.target.value)}
-                  placeholder="0"/>
-              </div>
-            ))}
-          </div>
-          <div style={{marginTop:8,fontSize:12,color:"#0e7490",fontWeight:600}}>
-            Total: {Object.values(form.cells).reduce((s,v)=>s+(parseInt(v)||0),0).toLocaleString()} urchins
-          </div>
-        </div>
-
-        {/* Exit conditions */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
-          <div style={row}><label style={labelSty}>Exit Conditions</label>
-            <select style={inputSty} value={form.exitConditions} onChange={e=>set("exitConditions",e.target.value)}>
-              {["Excellent","Good","Fair","Difficult"].map(o=><option key={o} value={o}>{o}</option>)}
-            </select></div>
-          <div/></div>
-
-        {/* Comments */}
-        <div style={{...row,marginBottom:24}}>
-          <label style={labelSty}>Comments / Observations</label>
-          <textarea style={{...inputSty,resize:"vertical"}} rows={3}
-            value={form.comments} onChange={e=>set("comments",e.target.value)}
-            placeholder="Kelp recruits observed, unusual species, GPS coords, dive conditions narrative…"/>
-        </div>
-
-        <button onClick={()=>setSubmitted(true)}
-          style={{padding:"12px 32px",borderRadius:10,background:"#0a2342",color:"white",border:"none",
-            cursor:"pointer",fontSize:15,fontWeight:700,letterSpacing:"-0.01em"}}>
-          Submit Dive Log →
-        </button>
-      </div>
-    </div>
-  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PAGE 3 — IMPACT SUMMARIES + LONG-TERM EVALUATION
+// STATE
 // ═══════════════════════════════════════════════════════════════════════════
-function CellGridMap({site}){
+let currentSite="caspar";
+let currentP3Site="caspar";
+let importSource=null;
+let replayIdx=0;
+let playInterval=null;
+let charts={canopy:null,urchin:null,cumul:null,compare:null};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE 1
+// ═══════════════════════════════════════════════════════════════════════════
+function selectSite(id){
+  currentSite=id;
+  renderSiteDots();
+  renderP1();
+}
+
+function renderP1(){
+  const site=SITES[currentSite];
+  // Breadcrumb
+  const bc=document.getElementById("p1-breadcrumb");
+  bc.innerHTML=Object.values(SITES).map((s,i)=>`
+    ${i>0?'<span class="sep">·</span>':''}
+    <span class="crumb ${s.id===currentSite?'active':''}" onclick="selectSite('${s.id}')">${s.name.split(" ")[0]}</span>
+  `).join("");
+  document.getElementById("p1-sitename").textContent=site.name;
+  document.getElementById("p1-sitesub").textContent=`Mendocino County · ${site.depthRange}`;
+
+  // Conditions tiles
+  const now=site.canopy[site.canopy.length-1].ha;
+  const prev=site.canopy[site.canopy.length-2].ha;
+  const trend=now>prev+0.05?"↑":now<prev-0.05?"↓":"→";
+  const trendClr=trend==="↑"?"#16a34a":trend==="↓"?"#dc2626":"#64748b";
+  const conds=[
+    {label:"Canopy",val:`${now} ha`,sub:trend,subClr:trendClr,bold:true},
+    {label:"Water Temp",val:`${site.conditions.sst}°F`,sub:"surface"},
+    {label:"Swell",val:site.conditions.swell.split("@")[0].trim(),sub:`@ ${(site.conditions.swell.split("@")[1]||"").trim()}`},
+    {label:"Visibility",val:site.conditions.visibility.split("–")[0].trim(),sub:"ft range"},
+  ];
+  document.getElementById("p1-condtiles").innerHTML=conds.map(c=>`
+    <div class="cond-tile">
+      <span class="cond-lbl">${c.label}</span>
+      <div class="cond-val">${c.val}</div>
+      <div class="cond-sub" style="color:${c.subClr||'var(--label)'};font-weight:${c.bold?700:400}">${c.sub}</div>
+    </div>`).join("");
+
+  // Suitability
+  const suit=suitability(site);
+  document.getElementById("p1-suit-label").textContent=`${suit.label} (${suit.score}/100)`;
+  document.getElementById("p1-suit-label").style.color=suit.color;
+  document.getElementById("p1-suit-bar").style.width=suit.score+"%";
+  document.getElementById("p1-suit-bar").style.background=suit.color;
+  document.getElementById("p1-suit-grid").innerHTML=[
+    ["Surge",site.conditions.surge],["Wind",site.conditions.wind],
+    ["Visibility",site.conditions.visibility],["Swell",site.conditions.swell]
+  ].map(([k,v])=>`<div class="suit-row"><span class="sk">${k}</span><span class="sv">${v}</span></div>`).join("");
+
+  // 90-day activity
+  const rec=recentDives(site,90);
+  const recUrchins=rec.reduce((s,d)=>s+Object.values(d.cells||{}).reduce((a,b)=>a+b,0),0);
+  const recHrs=rec.reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0).toFixed(1);
+  document.getElementById("p1-activity").innerHTML=[
+    {l:"Dives",v:rec.length},{l:"Diver-Hrs",v:recHrs},{l:"Urchins Culled",v:recUrchins.toLocaleString()}
+  ].map(x=>`<div class="activity-box"><div class="activity-num">${x.v}</div><div class="activity-lbl">${x.l}</div></div>`).join("");
+
+  const last=site.dives[site.dives.length-1];
+  document.getElementById("p1-lastdive").innerHTML=last?`Last dive: <strong style="color:var(--navy)">${last.date}</strong> · ${daysSince(last.date)} days ago · ${last.divers} divers`:"No dives recorded yet.";
+
+  // Comments
+  const comments=site.dives.slice(-3).reverse();
+  document.getElementById("p1-comments").innerHTML=comments.length===0
+    ?`<p style="font-size:12px;color:var(--label);font-style:italic;padding:8px 0">No recent dives logged.</p>`
+    :comments.map(c=>`
+      <div class="exit-card">
+        <div class="exit-meta">
+          <span class="exit-date">${c.date}</span>
+          <span class="exit-badge" style="background:${exitColor[c.exitConditions]}18;color:${exitColor[c.exitConditions]};border:1px solid ${exitColor[c.exitConditions]}44">${c.exitConditions}</span>
+        </div>
+        <div class="exit-text">${c.comments}</div>
+      </div>`).join("");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE 2
+// ═══════════════════════════════════════════════════════════════════════════
+let formSite=currentSite;
+
+function renderP2Sites(){
+  document.getElementById("p2-sites").innerHTML=Object.values(SITES).map(s=>`
+    <div class="site-option ${s.id===formSite?'sel':''}" onclick="selectFormSite('${s.id}')">
+      <div class="so-name">${s.name}</div>
+      <div class="so-sub">${s.depthRange}</div>
+    </div>`).join("");
+  document.getElementById("form-subtitle").textContent=`${SITES[formSite].name} · Complete after each cull dive`;
+}
+function selectFormSite(id){formSite=id;renderP2Sites();}
+
+function renderCellInputs(){
+  document.getElementById("cell-inputs").innerHTML=CELLS.map(c=>`
+    <div class="cell-box" id="cb-${c}">
+      <div class="cell-label">Cell ${c}</div>
+      <input type="number" min="0" placeholder="0" id="ci-${c}" oninput="updateCellTotal()"/>
+      <div class="cell-count" id="cc-${c}" style="display:none"></div>
+    </div>`).join("");
+}
+function updateCellTotal(){
+  let total=0;
+  CELLS.forEach(c=>{
+    const val=parseInt(document.getElementById(`ci-${c}`).value)||0;
+    total+=val;
+    const box=document.getElementById(`cb-${c}`);
+    const cnt=document.getElementById(`cc-${c}`);
+    const inp=document.getElementById(`ci-${c}`);
+    if(val>0){
+      box.classList.add("has-val");
+      cnt.style.display="block";
+      cnt.textContent=`${val} urchins`;
+      inp.style.background="white";
+      box.style.background=`rgba(14,116,144,${0.04+Math.min(val/300,1)*0.22})`;
+    }else{
+      box.classList.remove("has-val");
+      cnt.style.display="none";
+      inp.style.background="#fafafa";
+      box.style.background="rgba(14,116,144,0.04)";
+    }
+  });
+  document.getElementById("cell-total").textContent=`${total.toLocaleString()} urchins`;
+}
+
+let importing=false;
+function simulateImport(src){
+  if(importing)return;
+  importing=true;
+  const btns=document.querySelectorAll(".import-btn");
+  btns.forEach(b=>{b.classList.add("uploading");b.querySelector(".ib-title").textContent="⏳ Importing…";});
+  setTimeout(()=>{
+    importing=false;
+    importSource=src;
+    btns.forEach((b,i)=>{
+      b.classList.remove("uploading");
+      const titles=["🤿 Garmin / Suunto Watch","📱 PADI Dive Log App","🌊 Subsurface / DiveLogs","📎 Upload UDDF / CSV / FIT"];
+      b.querySelector(".ib-title").textContent=titles[i]||"📎 Upload UDDF / CSV / FIT";
+    });
+    const succ=document.getElementById("import-success");
+    succ.style.display="block";
+    succ.textContent=`✓ Imported from ${src}`;
+    const tag=document.getElementById("import-tag");
+    tag.textContent=`✓ Auto-filled · ${src}`;
+    tag.style.color="#14532d";
+    tag.style.background="#f0fdf4";
+    tag.style.padding="2px 8px";
+    tag.style.borderRadius="10px";
+    tag.style.border="1px solid #86efac";
+    // Fill fields
+    ["f-date","f-depth","f-time","f-temp"].forEach(id=>{
+      const el=document.getElementById(id);
+      if(id==="f-date")el.value="2024-06-25";
+      else if(id==="f-depth")el.value="31";
+      else if(id==="f-time")el.value="52";
+      else el.value="54";
+      el.classList.add("autofilled");
+    });
+  },1200);
+}
+
+function submitForm(){
+  const total=CELLS.reduce((s,c)=>s+(parseInt(document.getElementById(`ci-${c}`).value)||0),0);
+  const date=document.getElementById("f-date").value||"unknown date";
+  const exit=document.getElementById("f-exit").value;
+  document.getElementById("form-inner").style.display="none";
+  const ss=document.getElementById("success-screen");
+  ss.classList.add("show");
+  document.getElementById("success-msg").innerHTML=`<strong style="color:var(--navy)">${total.toLocaleString()}</strong> urchins removed at <strong style="color:var(--navy)">${SITES[formSite].name}</strong> on ${date}. Exit conditions: <strong style="color:var(--navy)">${exit}</strong>.`;
+}
+function resetForm(){
+  document.getElementById("form-inner").style.display="block";
+  document.getElementById("success-screen").classList.remove("show");
+  importSource=null;
+  ["f-name","f-email","f-group","f-date","f-depth","f-time","f-temp","f-vis","f-comments"].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value="";el&&el.classList.remove("autofilled");
+  });
+  const tag=document.getElementById("import-tag");
+  tag.textContent="Use import ← to auto-fill";tag.style.cssText="font-size:10px;color:var(--label);font-style:italic;";
+  const succ=document.getElementById("import-success");succ.style.display="none";
+  CELLS.forEach(c=>{document.getElementById(`ci-${c}`).value="";});
+  updateCellTotal();
+  document.getElementById("import-success").style.display="none";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PAGE 3
+// ═══════════════════════════════════════════════════════════════════════════
+function selectP3Site(id){
+  currentP3Site=id;
+  document.querySelectorAll(".site-tab").forEach(b=>b.classList.toggle("active",b.dataset.site===id));
+  replayIdx=SITES[id].canopy.length-1;
+  stopPlay();
+  renderP3();
+}
+
+function renderP3Tabs(){
+  const wrap=document.getElementById("p3-tabs");
+  const exportBtns=wrap.querySelector(".export-btns");
+  wrap.innerHTML="";
+  Object.values(SITES).forEach(s=>{
+    const b=document.createElement("button");
+    b.className="site-tab"+(s.id===currentP3Site?" active":"");
+    b.dataset.site=s.id;
+    b.textContent=s.name;
+    b.onclick=()=>selectP3Site(s.id);
+    wrap.appendChild(b);
+  });
+  wrap.appendChild(exportBtns);
+}
+
+function renderCellMap(){
+  const site=SITES[currentP3Site];
   const cells=site.cellGrid;
-  const totals=getTotalUrchinsByCell(site);
+  const totals=cellTotals(site);
   const maxU=Math.max(...Object.values(totals),1);
-  const W=260,H=200;
+  const W=240,H=190;
   const lats=Object.values(cells).map(c=>c.lat);
   const lngs=Object.values(cells).map(c=>c.lng);
   const latMin=Math.min(...lats)-0.0015,latMax=Math.max(...lats)+0.0015;
   const lngMin=Math.min(...lngs)-0.002,lngMax=Math.max(...lngs)+0.002;
-  function cp(lat,lng){
-    return[
-      ((lng-lngMin)/(lngMax-lngMin)*W).toFixed(1),
-      (H-((lat-latMin)/(latMax-latMin)*H)).toFixed(1)
-    ];
-  }
-  return(
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}>
-      <rect width={W} height={H} fill="#c8e6f4" rx={8}/>
-      {CELLS.map(c=>{
-        const pos=cells[c];
-        if(!pos)return null;
-        const[cx,cy]=cp(pos.lat,pos.lng);
-        const intensity=totals[c]/maxU;
-        const fill=`rgba(14,116,144,${0.1+intensity*0.85})`;
-        const sz=22+intensity*14;
-        return(
-          <g key={c}>
-            <rect x={parseFloat(cx)-sz/2} y={parseFloat(cy)-sz/2} width={sz} height={sz}
-              rx={4} fill={fill} stroke="white" strokeWidth={1.5}/>
-            <text x={cx} y={parseFloat(cy)+4} textAnchor="middle" fontSize={10} fill="white" fontWeight="700">{c}</text>
-            {totals[c]>0&&(
-              <text x={cx} y={parseFloat(cy)+sz/2+12} textAnchor="middle" fontSize={7.5} fill="#0e7490" fontWeight="600">
-                {totals[c].toLocaleString()}
-              </text>
-            )}
-          </g>
-        );
-      })}
-      <text x={W/2} y={H-4} textAnchor="middle" fontSize={8} fill="#4488a8" opacity={0.7}>Cell size ∝ urchins removed</text>
-    </svg>
-  );
-}
-
-// Timeseries replay map
-function ReplayMap({site,replayIdx}){
-  const snap=site.canopy[Math.min(replayIdx,site.canopy.length-1)];
-  const prev=site.canopy[0];
-  const intensity=Math.min(1,(snap.ha-prev.ha)/6);
-  const died=site.canopyDied||[];
-  const W=260,H=190;
-  const[mx,my]=proj(site.lat,site.lng);
-  const scaleX=W/MAP_W,scaleY=H/MAP_H;
-  const sx=mx*scaleX,sy=my*scaleY;
-  return(
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H}>
-      <rect width={W} height={H} fill="#c8e6f4" rx={8}/>
-      {/* Died area (gray) */}
-      {died.length>0&&(
-        <circle cx={sx} cy={sy} r={25} fill="#94a3b8" opacity={0.35}/>
-      )}
-      {/* Live canopy circle */}
-      <circle cx={sx} cy={sy} r={8+intensity*32}
-        fill={`rgba(22,163,74,${0.15+intensity*0.5})`} stroke="#16a34a" strokeWidth={1.5}/>
-      <circle cx={sx} cy={sy} r={6} fill="#16a34a" opacity={0.9}/>
-      <text x={sx} y={sy+28+intensity*20} textAnchor="middle" fontSize={9} fill="#16a34a" fontWeight="700">
-        {snap.ha} ha
-      </text>
-      <text x={sx} y={sy-18} textAnchor="middle" fontSize={9} fill="#0a2342" fontWeight="600">
-        {snap.month}
-      </text>
-      {died.length>0&&(
-        <text x={sx+30} y={sy} textAnchor="start" fontSize={7.5} fill="#64748b">
-          Lost area ↗
-        </text>
-      )}
-      <text x={W/2} y={H-5} textAnchor="middle" fontSize={7.5} fill="#4488a8" opacity={0.7}>{site.name}</text>
-    </svg>
-  );
-}
-
-function Page3({selectedSite,setSelectedSite}){
-  const site=SITES[selectedSite];
-  const [replayIdx,setReplayIdx]=useState(site.canopy.length-1);
-  const [playing,setPlaying]=useState(false);
-  const playRef=useRef(null);
-  const cellTotals=getTotalUrchinsByCell(site);
-  const eff=getSiteEfficiency(site);
-  const allSites=Object.values(SITES);
-
-  // Auto-advance replay
-  const togglePlay=()=>{
-    if(playing){clearInterval(playRef.current);setPlaying(false);}
-    else{
-      setReplayIdx(0);
-      setPlaying(true);
-      let i=0;
-      playRef.current=setInterval(()=>{
-        i++;
-        if(i>=site.canopy.length){clearInterval(playRef.current);setPlaying(false);return;}
-        setReplayIdx(i);
-      },700);
-    }
-  };
-
-  // Cumulative urchin bars
-  const cumulData=[];
-  let cum=0;
-  site.dives.forEach(d=>{
-    const n=Object.values(d.cells||{}).reduce((a,b)=>a+b,0);
-    cum+=n;
-    cumulData.push({date:d.date.slice(0,7),urchins:n,cumulative:cum,diverHours:parseFloat((d.divers*d.bottomTime/60).toFixed(1))});
+  function cp(lat,lng){return[((lng-lngMin)/(lngMax-lngMin)*W).toFixed(1),(H-((lat-latMin)/(latMax-latMin)*H)).toFixed(1)];}
+  const svg=document.getElementById("cell-map-svg");
+  svg.innerHTML=`<rect width="${W}" height="${H}" fill="#c8e6f4" rx="8"/>`;
+  CELLS.forEach(c=>{
+    const pos=cells[c];if(!pos)return;
+    const[cx,cy]=cp(pos.lat,pos.lng);
+    const intensity=totals[c]/maxU;
+    const sz=20+intensity*16;
+    const fill=`rgba(14,116,144,${(0.1+intensity*0.85).toFixed(2)})`;
+    svg.innerHTML+=`
+      <rect x="${parseFloat(cx)-sz/2}" y="${parseFloat(cy)-sz/2}" width="${sz}" height="${sz}" rx="4" fill="${fill}" stroke="white" stroke-width="1.5"/>
+      <text x="${cx}" y="${parseFloat(cy)+4}" text-anchor="middle" font-size="10" fill="white" font-weight="700">${c}</text>
+      ${totals[c]>0?`<text x="${cx}" y="${parseFloat(cy)+sz/2+12}" text-anchor="middle" font-size="7.5" fill="#0e7490" font-weight="600">${totals[c].toLocaleString()}</text>`:""}`;
   });
+  svg.innerHTML+=`<text x="${W/2}" y="${H-4}" text-anchor="middle" font-size="8" fill="#4488a8" opacity="0.7">Cell size ∝ urchins removed</text>`;
+  document.getElementById("p3-cell-title").textContent=`Cell Activity — ${site.name}`;
+  const t=cellTotals(site);
+  document.getElementById("p3-cell-totals").innerHTML=CELLS.map(c=>`
+    <div class="ct-box"><div class="ct-lbl">Cell ${c}</div><div class="ct-val">${(t[c]||0).toLocaleString()}</div></div>`).join("");
+}
 
-  // All-sites comparison
-  const siteComp=allSites.map(s=>({
-    name:s.name.split(" ")[0],
-    ha:s.canopy[s.canopy.length-1].ha,
-    gain:parseFloat((s.canopy[s.canopy.length-1].ha-s.canopy[0].ha).toFixed(2)),
-    dives:s.dives.length,
-    hrs:parseFloat(s.dives.reduce((sum,d)=>sum+(d.divers*d.bottomTime)/60,0).toFixed(1)),
-  }));
+function renderReplayMap(){
+  const site=SITES[currentP3Site];
+  const snap=site.canopy[Math.min(replayIdx,site.canopy.length-1)];
+  const first=site.canopy[0];
+  const intensity=Math.min(1,(snap.ha-first.ha)/6);
+  const died=site.canopyDied||[];
+  const W=240,H=180;
+  const[mx,my]=proj(site.lat,site.lng);
+  const sx=(mx*(W/MAP_W)).toFixed(1);
+  const sy=(my*(H/MAP_H)).toFixed(1);
+  const r=(8+intensity*30).toFixed(1);
+  const svg=document.getElementById("replay-svg");
+  svg.innerHTML=`
+    <rect width="${W}" height="${H}" fill="#c8e6f4" rx="8"/>
+    ${died.length>0?`<circle cx="${sx}" cy="${sy}" r="28" fill="#94a3b8" opacity="0.30"/>
+    <text x="${parseFloat(sx)+32}" y="${parseFloat(sy)-6}" text-anchor="start" font-size="7.5" fill="#64748b">Lost area ↗</text>`:""}
+    <circle cx="${sx}" cy="${sy}" r="${r}" fill="rgba(22,163,74,${(0.15+intensity*0.5).toFixed(2)})" stroke="#16a34a" stroke-width="1.5"/>
+    <circle cx="${sx}" cy="${sy}" r="6" fill="#16a34a" opacity="0.9"/>
+    <text x="${sx}" y="${parseFloat(sy)+parseFloat(r)+14}" text-anchor="middle" font-size="9" fill="#16a34a" font-weight="700">${snap.ha} ha</text>
+    <text x="${sx}" y="${parseFloat(sy)-16}" text-anchor="middle" font-size="9" fill="#0a2342" font-weight="700">${snap.m}</text>
+    <text x="${W/2}" y="${H-5}" text-anchor="middle" font-size="7.5" fill="#4488a8" opacity="0.7">${site.name}</text>`;
 
-  function exportCSV(){
-    const rows=[["Date","Divers","Bottom Time","Max Depth","Water Temp","Visibility","Surge",
-      ...CELLS.map(c=>`Cell ${c} Urchins`),"Total Urchins","Comments","Exit Conditions"]];
-    site.dives.forEach(d=>{
-      const total=Object.values(d.cells||{}).reduce((a,b)=>a+b,0);
-      rows.push([d.date,d.divers,d.bottomTime,d.maxDepth,d.waterTemp,d.visibility,d.surge,
-        ...CELLS.map(c=>d.cells?.[c]||0),total,`"${d.comments}"`,d.exitConditions]);
-    });
-    const csv=rows.map(r=>r.join(",")).join("\n");
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-    a.download=`${site.id}_dive_data.csv`;a.click();
+  const slider=document.getElementById("replay-slider");
+  slider.max=site.canopy.length-1;
+  slider.value=replayIdx;
+  document.getElementById("rt-start").textContent=site.canopy[0].m;
+  document.getElementById("rt-cur").textContent=snap.m;
+  document.getElementById("rt-end").textContent=site.canopy[site.canopy.length-1].m;
+}
+
+function onSlider(val){stopPlay();replayIdx=parseInt(val);renderReplayMap();}
+
+function togglePlay(){
+  const btn=document.getElementById("play-btn");
+  if(playInterval){stopPlay();}
+  else{
+    replayIdx=0;
+    btn.textContent="⏹ Stop";btn.classList.add("stop");
+    playInterval=setInterval(()=>{
+      replayIdx++;
+      if(replayIdx>=SITES[currentP3Site].canopy.length){stopPlay();return;}
+      renderReplayMap();
+    },700);
+    renderReplayMap();
   }
+}
+function stopPlay(){
+  if(playInterval){clearInterval(playInterval);playInterval=null;}
+  const btn=document.getElementById("play-btn");
+  btn.textContent="▶ Play";btn.classList.remove("stop");
+}
 
-  const S={
-    card:{background:"#fff",borderRadius:12,padding:"14px 16px",border:"1px solid #e2e8f0"},
-    label:{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.07em",display:"block",marginBottom:6},
-  };
+function destroyChart(key){if(charts[key]){charts[key].destroy();charts[key]=null;}}
 
-  const ttStyle={background:"#0a2342",border:"none",borderRadius:6,fontSize:11,color:"#fff",padding:"4px 10px"};
+function renderCanopyChart(){
+  const site=SITES[currentP3Site];
+  destroyChart("canopy");
+  document.getElementById("p3-canopy-title").textContent=`Canopy Recovery — Full History (${site.canopy[0].m} – ${site.canopy[site.canopy.length-1].m})`;
+  const ctx=document.getElementById("canopy-chart").getContext("2d");
+  const diveMonths=new Set(site.dives.map(d=>{
+    const dt=new Date(d.date);
+    return dt.toLocaleString("en-US",{month:"short",year:"2-digit"}).replace(" "," ");
+  }));
+  charts.canopy=new Chart(ctx,{
+    type:"line",
+    data:{labels:site.canopy.map(x=>x.m),datasets:[{label:"Canopy (ha)",data:site.canopy.map(x=>x.ha),borderColor:"#16a34a",backgroundColor:"rgba(22,163,74,0.12)",borderWidth:2.5,pointRadius:4,pointBackgroundColor:"#16a34a",fill:true,tension:0.3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:"#0a2342",titleColor:"#fff",bodyColor:"#fff",borderWidth:0,padding:8}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:"#94a3b8",maxRotation:45}},y:{grid:{color:"#f1f5f9"},ticks:{font:{size:9},color:"#94a3b8",callback:v=>`${v}ha`}}},
+    plugins:[{afterDraw(chart){
+      const{ctx,scales}=chart;
+      site.dives.forEach(d=>{
+        const dt=new Date(d.date);
+        const label=dt.toLocaleString("en-US",{month:"short",year:"2-digit"}).replace(" "," ");
+        const idx=site.canopy.findIndex(x=>x.m===label);
+        if(idx<0)return;
+        const x=scales.x.getPixelForValue(idx);
+        ctx.save();ctx.strokeStyle="rgba(14,116,144,0.35)";ctx.lineWidth=1;ctx.setLineDash([]);
+        ctx.beginPath();ctx.moveTo(x,scales.y.top);ctx.lineTo(x,scales.y.bottom);ctx.stroke();ctx.restore();
+      });
+    }}]}
+  });
+}
 
-  return(
-    <div style={{overflowY:"auto",padding:"20px",background:"#f8fafc",height:"100%",display:"flex",flexDirection:"column",gap:16}}>
+function renderUrchinChart(){
+  const site=SITES[currentP3Site];
+  destroyChart("urchin");
+  const ctx=document.getElementById("urchin-chart").getContext("2d");
+  if(!site.dives.length){
+    const c=new Chart(ctx,{type:"bar",data:{labels:["No data"],datasets:[{data:[0],backgroundColor:"#e2e8f0"}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+    charts.urchin=c;return;
+  }
+  const labels=site.dives.map(d=>d.date.slice(0,7));
+  const urchins=site.dives.map(d=>Object.values(d.cells||{}).reduce((a,b)=>a+b,0));
+  const hrs=site.dives.map(d=>parseFloat((d.divers*d.bottomTime/60).toFixed(1)));
+  charts.urchin=new Chart(ctx,{
+    type:"bar",
+    data:{labels,datasets:[{label:"Urchins culled",data:urchins,backgroundColor:"rgba(14,116,144,0.85)",borderRadius:3},{label:"Diver-hrs",data:hrs,backgroundColor:"rgba(77,124,15,0.55)",borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10},boxWidth:8}},tooltip:{backgroundColor:"#0a2342",titleColor:"#fff",bodyColor:"#fff"}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:"#94a3b8"}},y:{grid:{color:"#f1f5f9"},ticks:{font:{size:9},color:"#94a3b8"}}}}
+  });
+}
 
-      {/* Site selector tabs */}
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        {allSites.map(s=>(
-          <button key={s.id} onClick={()=>{setSelectedSite(s.id);setReplayIdx(SITES[s.id].canopy.length-1);setPlaying(false);clearInterval(playRef.current);}}
-            style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${s.id===selectedSite?"#0a2342":"#e2e8f0"}`,
-              background:s.id===selectedSite?"#0a2342":"white",
-              color:s.id===selectedSite?"white":"#64748b",cursor:"pointer",fontSize:12,fontWeight:600}}>
-            {s.name}
-          </button>
-        ))}
-        <div style={{marginLeft:"auto",display:"flex",gap:8}}>
-          <button onClick={exportCSV}
-            style={{padding:"6px 14px",borderRadius:20,border:"1px solid #0e7490",background:"#f0f9ff",
-              color:"#0e7490",cursor:"pointer",fontSize:12,fontWeight:600}}>
-            ↓ Export CSV
-          </button>
-          <button onClick={()=>{
-            const data=JSON.stringify({site:site.id,exported:"2024-06-25",dives:site.dives,canopy:site.canopy},null,2);
-            const a=document.createElement("a");
-            a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
-            a.download=`${site.id}_full_data.json`;a.click();
-          }}
-            style={{padding:"6px 14px",borderRadius:20,border:"1px solid #6b21a8",background:"#fdf4ff",
-              color:"#6b21a8",cursor:"pointer",fontSize:12,fontWeight:600}}>
-            ↓ Export JSON
-          </button>
-        </div>
-      </div>
+function renderEfficiency(){
+  const site=SITES[currentP3Site];
+  const hrs=site.dives.reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0).toFixed(1);
+  const gain=(site.canopy[site.canopy.length-1].ha-site.canopy[0].ha).toFixed(2);
+  const eff=siteEfficiency(site);
+  document.getElementById("p3-eff-boxes").innerHTML=[
+    {l:"Total Diver-Hrs",v:hrs,u:"hrs"},{l:"Canopy Gained",v:gain,u:"ha"},{l:"Efficiency",v:eff||"—",u:eff?"hrs/ha":""}
+  ].map(x=>`<div class="eff-box"><div class="eff-num">${x.v}<span class="eff-unit">${x.u}</span></div><div class="eff-lbl">${x.l}</div></div>`).join("");
 
-      {/* Row 1: Cell map + Canopy timeseries */}
-      <div style={{display:"grid",gridTemplateColumns:"240px 1fr",gap:14}}>
-        <div style={S.card}>
-          <span style={S.label}>Cell Activity Map — {site.name}</span>
-          <CellGridMap site={site}/>
-          <div style={{marginTop:8,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:4}}>
-            {CELLS.map(c=>(
-              <div key={c} style={{textAlign:"center",padding:"4px",background:"#f8fafc",borderRadius:5}}>
-                <div style={{fontSize:10,color:"#94a3b8",fontWeight:600}}>Cell {c}</div>
-                <div style={{fontSize:12,fontWeight:700,color:"#0a2342"}}>{(cellTotals[c]||0).toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+  destroyChart("cumul");
+  const ctx=document.getElementById("cumul-chart").getContext("2d");
+  let cum=0;
+  const cuData=site.dives.map(d=>{cum+=Object.values(d.cells||{}).reduce((a,b)=>a+b,0);return cum;});
+  const cuLabels=site.dives.map(d=>d.date.slice(0,7));
+  if(cuLabels.length){
+    charts.cumul=new Chart(ctx,{type:"line",data:{labels:cuLabels,datasets:[{label:"Cumulative urchins",data:cuData,borderColor:"#0e7490",backgroundColor:"transparent",borderWidth:2,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:"#0a2342",titleColor:"#fff",bodyColor:"#fff"}},scales:{x:{grid:{display:false},ticks:{font:{size:8},color:"#94a3b8"}},y:{grid:{color:"#f1f5f9"},ticks:{font:{size:8},color:"#94a3b8"}}}}});
+  }
+}
 
-        <div style={S.card}>
-          <span style={S.label}>Canopy Recovery — Full History ({site.canopy[0].month} – {site.canopy[site.canopy.length-1].month})</span>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={site.canopy} margin={{top:8,right:8,bottom:0,left:-14}}>
-              <defs>
-                <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#16a34a" stopOpacity={0.3}/>
-                  <stop offset="100%" stopColor="#16a34a" stopOpacity={0.02}/>
-                </linearGradient>
-                <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.3}/>
-                  <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.02}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="month" tick={{fontSize:9,fill:"#94a3b8"}} tickLine={false} axisLine={false} interval={1}/>
-              <YAxis tick={{fontSize:9,fill:"#94a3b8"}} tickLine={false} axisLine={false}
-                tickFormatter={v=>`${v}ha`} width={32}/>
-              <RTooltip contentStyle={ttStyle} formatter={v=>[`${v} ha`,"Canopy"]}/>
-              {site.canopyDied?.map((d,i)=>(
-                <ReferenceLine key={i} x={d.start} stroke="#94a3b8" strokeDasharray="4,3" strokeWidth={1}
-                  label={{value:"Loss period",position:"insideTopRight",fontSize:8,fill:"#94a3b8"}}/>
-              ))}
-              {/* Gray "died" area — approximate via second dataset */}
-              <Area type="monotone" dataKey="ha" stroke="#16a34a" strokeWidth={2.5}
-                fill="url(#cg)" dot={{r:3,fill:"#16a34a"}} activeDot={{r:5}}/>
-              {/* Dive event lines */}
-              {site.dives.map((d,i)=>{
-                const m=new Date(d.date).toLocaleString("en-US",{month:"short",year:"2-digit"}).replace(" "," ");
-                return<ReferenceLine key={i} x={m} stroke="#0e7490" strokeWidth={1} strokeOpacity={0.4}/>;
-              })}
-            </AreaChart>
-          </ResponsiveContainer>
-          <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>
-            Teal vertical lines = dive events · Gray dashed = historical loss period
-          </div>
-        </div>
-      </div>
+function renderCompareChart(){
+  destroyChart("compare");
+  const ctx=document.getElementById("compare-chart").getContext("2d");
+  const sites=Object.values(SITES);
+  const names=sites.map(s=>s.name.split(" ")[0]);
+  const gains=sites.map(s=>parseFloat((s.canopy[s.canopy.length-1].ha-s.canopy[0].ha).toFixed(2)));
+  const curr=sites.map(s=>s.canopy[s.canopy.length-1].ha);
+  charts.compare=new Chart(ctx,{
+    type:"bar",
+    data:{labels:names,datasets:[{label:"Ha gained",data:gains,backgroundColor:"rgba(22,163,74,0.85)",borderRadius:3},{label:"Current ha",data:curr,backgroundColor:"rgba(14,116,144,0.5)",borderRadius:3}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:10},boxWidth:8}},tooltip:{backgroundColor:"#0a2342",titleColor:"#fff",bodyColor:"#fff"}},scales:{x:{grid:{color:"#f1f5f9"},ticks:{font:{size:9},color:"#94a3b8",callback:v=>`${v}ha`}},y:{grid:{display:false},ticks:{font:{size:10},color:"#334155"}}}}
+  });
+  document.getElementById("p3-compare-list").innerHTML=sites.map(s=>{
+    const hrs=s.dives.reduce((sum,d)=>sum+(d.divers*d.bottomTime)/60,0).toFixed(1);
+    const gain=(s.canopy[s.canopy.length-1].ha-s.canopy[0].ha).toFixed(2);
+    return`<div class="site-compare-row"><span class="scn">${s.name}</span><span class="scv">${hrs}h · ${s.dives.length} dives · ${gain>0?"+":""}${gain} ha</span></div>`;
+  }).join("");
+}
 
-      {/* Row 2: Urchin cull bars + replay map */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 260px",gap:14}}>
-        <div style={S.card}>
-          <span style={S.label}>Urchins Removed per Dive · {site.name}</span>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={cumulData} margin={{top:4,right:8,bottom:0,left:-14}}>
-              <CartesianGrid stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="date" tick={{fontSize:9,fill:"#94a3b8"}} tickLine={false} axisLine={false}/>
-              <YAxis tick={{fontSize:9,fill:"#94a3b8"}} tickLine={false} axisLine={false} width={36}/>
-              <RTooltip contentStyle={ttStyle}/>
-              <Bar dataKey="urchins" fill="#0e7490" radius={[3,3,0,0]} name="Urchins"/>
-              <Bar dataKey="diverHours" fill="#4d7c0f" radius={[3,3,0,0]} name="Diver-hrs" yAxisId={0} opacity={0.5}/>
-              <Legend iconSize={8} wrapperStyle={{fontSize:10}}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div style={S.card}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <span style={S.label}>Kelp Recovery Replay</span>
-            <button onClick={togglePlay}
-              style={{padding:"4px 12px",borderRadius:6,border:"1px solid #0a2342",
-                background:playing?"#fef2f2":"#0a2342",color:playing?"#dc2626":"white",
-                cursor:"pointer",fontSize:11,fontWeight:600}}>
-              {playing?"⏹ Stop":"▶ Play"}
-            </button>
-          </div>
-          <ReplayMap site={site} replayIdx={replayIdx}/>
-          <input type="range" min={0} max={site.canopy.length-1} value={replayIdx}
-            onChange={e=>{clearInterval(playRef.current);setPlaying(false);setReplayIdx(parseInt(e.target.value));}}
-            style={{width:"100%",marginTop:6,accentColor:"#16a34a"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#94a3b8",marginTop:2}}>
-            <span>{site.canopy[0].month}</span>
-            <span style={{color:"#16a34a",fontWeight:600}}>{site.canopy[replayIdx]?.month}</span>
-            <span>{site.canopy[site.canopy.length-1].month}</span>
-          </div>
-          <div style={{marginTop:8,display:"flex",gap:10,fontSize:9}}>
-            <span style={{display:"flex",alignItems:"center",gap:4}}>
-              <span style={{width:10,height:10,borderRadius:"50%",background:"rgba(22,163,74,0.5)",display:"inline-block"}}/>
-              Live canopy</span>
-            <span style={{display:"flex",alignItems:"center",gap:4}}>
-              <span style={{width:10,height:10,borderRadius:"50%",background:"rgba(148,163,184,0.4)",display:"inline-block"}}/>
-              Historical loss</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Row 3: Efficiency + cross-site comparison */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        <div style={S.card}>
-          <span style={S.label}>Diver-Hours → Kelp Hectares Recovered</span>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-            {[
-              {l:"Total Diver-Hrs",v:site.dives.reduce((s,d)=>s+(d.divers*d.bottomTime)/60,0).toFixed(1),u:"hrs"},
-              {l:"Canopy Gained",v:(site.canopy[site.canopy.length-1].ha-site.canopy[0].ha).toFixed(2),u:"ha"},
-              {l:"Efficiency",v:eff||"—",u:eff?"hrs/ha":""},
-            ].map(item=>(
-              <div key={item.l} style={{textAlign:"center",padding:"10px 8px",background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
-                <div style={{fontSize:20,fontWeight:800,color:"#0a2342",lineHeight:1}}>{item.v}
-                  <span style={{fontSize:10,fontWeight:400,color:"#94a3b8",marginLeft:2}}>{item.u}</span></div>
-                <div style={{fontSize:9,color:"#94a3b8",fontWeight:600,marginTop:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{item.l}</div>
-              </div>
-            ))}
-          </div>
-          <ResponsiveContainer width="100%" height={100}>
-            <LineChart data={cumulData} margin={{top:4,right:8,bottom:0,left:-14}}>
-              <CartesianGrid stroke="#f1f5f9" vertical={false}/>
-              <XAxis dataKey="date" tick={{fontSize:8,fill:"#94a3b8"}} tickLine={false} axisLine={false}/>
-              <YAxis tick={{fontSize:8,fill:"#94a3b8"}} tickLine={false} axisLine={false} width={32}/>
-              <RTooltip contentStyle={ttStyle}/>
-              <Line type="monotone" dataKey="cumulative" stroke="#0e7490" strokeWidth={2}
-                dot={false} name="Cumulative urchins"/>
-            </LineChart>
-          </ResponsiveContainer>
-          <div style={{fontSize:10,color:"#94a3b8",marginTop:3}}>Cumulative urchins removed over program lifetime</div>
-        </div>
-
-        <div style={S.card}>
-          <span style={S.label}>Cross-Site Canopy Comparison</span>
-          <ResponsiveContainer width="100%" height={150}>
-            <BarChart data={siteComp} layout="vertical" margin={{top:0,right:16,bottom:0,left:40}}>
-              <CartesianGrid stroke="#f1f5f9" horizontal={false}/>
-              <XAxis type="number" tick={{fontSize:9,fill:"#94a3b8"}} tickLine={false} axisLine={false}
-                tickFormatter={v=>`${v}ha`}/>
-              <YAxis type="category" dataKey="name" tick={{fontSize:10,fill:"#334155"}} width={44} axisLine={false} tickLine={false}/>
-              <RTooltip contentStyle={ttStyle} formatter={(v,n)=>[`${v}`,n]}/>
-              <Bar dataKey="gain" fill="#16a34a" radius={[0,3,3,0]} name="Ha gained" opacity={0.85}/>
-              <Bar dataKey="ha" fill="#0e7490" radius={[0,3,3,0]} name="Current ha" opacity={0.5}/>
-              <Legend iconSize={8} wrapperStyle={{fontSize:10}}/>
-            </BarChart>
-          </ResponsiveContainer>
-          <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:5}}>
-            {siteComp.map(s=>(
-              <div key={s.name} style={{display:"flex",justifyContent:"space-between",fontSize:11,
-                padding:"4px 0",borderBottom:"1px solid #f1f5f9"}}>
-                <span style={{color:"#334155",fontWeight:500}}>{s.name}</span>
-                <span style={{color:"#0a2342",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>
-                  {s.hrs}h · {s.dives} dives · {s.gain>0?"+":""}{s.gain} ha
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function renderP3(){
+  renderCellMap();
+  renderReplayMap();
+  renderCanopyChart();
+  renderUrchinChart();
+  renderEfficiency();
+  renderCompareChart();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// APP SHELL
+// EXPORT
 // ═══════════════════════════════════════════════════════════════════════════
-const TABS=[
-  {id:"status",label:"Site Status & Dive Planning",icon:"🗺"},
-  {id:"input",label:"Dive Input",icon:"🤿"},
-  {id:"impact",label:"Impact & Long-Term Evaluation",icon:"📊"},
-];
-
-export default function KelpDashboard(){
-  const [tab,setTab]=useState("status");
-  const [selectedSite,setSelectedSite]=useState("caspar");
-  const totals=getProgramTotals();
-
-  return(
-    <div style={{height:"100vh",display:"flex",flexDirection:"column",
-      fontFamily:"'DM Sans',system-ui,sans-serif",background:"#f1f5f9",overflow:"hidden"}}>
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:wght@600;700&display=swap');
-        *{box-sizing:border-box;margin:0;}
-        ::-webkit-scrollbar{width:5px;}
-        ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
-        input,select,textarea{font-family:inherit;transition:border-color 0.15s;}
-        input:focus,select:focus,textarea:focus{border-color:#0e7490 !important;outline:none;}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-        .pg{animation:fadeIn 0.2s ease both;}
-      `}</style>
-
-      {/* HEADER */}
-      <header style={{background:"linear-gradient(135deg,#0a2342 0%,#0d3460 100%)",
-        padding:"0 20px",height:58,display:"flex",alignItems:"center",justifyContent:"space-between",
-        flexShrink:0,boxShadow:"0 2px 16px rgba(10,35,66,0.4)",position:"relative",overflow:"hidden"}}>
-        <svg style={{position:"absolute",right:0,top:0,opacity:0.05,pointerEvents:"none"}} width="500" height="58" viewBox="0 0 500 58">
-          {[0,1,2,3,4].map(i=>(
-            <path key={i} d={`M${i*100},29 Q${i*100+25},${17+i*2} ${i*100+50},29 Q${i*100+75},${41-i*2} ${i*100+100},29`}
-              stroke="white" strokeWidth={3.2-i*0.35} fill="none"/>
-          ))}
-        </svg>
-        <div style={{display:"flex",alignItems:"center",gap:11,zIndex:1}}>
-          <div style={{width:34,height:34,borderRadius:9,background:"rgba(255,255,255,0.1)",
-            display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,
-            border:"1px solid rgba(255,255,255,0.15)",flexShrink:0}}>🌿</div>
-          <div>
-            <div style={{fontSize:14,fontWeight:700,color:"#fff",fontFamily:"'Fraunces',Georgia,serif",letterSpacing:"-0.01em"}}>
-              California Kelp Restoration Initiative
-            </div>
-            <div style={{fontSize:9,color:"rgba(255,255,255,0.4)",letterSpacing:"0.09em",textTransform:"uppercase"}}>
-              Mendocino County Field Operations Dashboard
-            </div>
-          </div>
-        </div>
-        <div style={{display:"flex",gap:7,zIndex:1}}>
-          {[
-            {l:"Diver-Hours",v:totals.hrs,u:"hrs",a:"#38bdf8"},
-            {l:"Urchins Culled",v:totals.urchins.toLocaleString(),u:"",a:"#fb923c"},
-            {l:"Ha Recovered",v:totals.ha,u:"ha",a:"#86efac"},
-            {l:"Total Dives",v:totals.dives,u:"",a:"#c084fc"},
-          ].map(k=>(
-            <div key={k.l} style={{padding:"5px 11px",borderRadius:8,
-              background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",minWidth:80}}>
-              <div style={{fontSize:8.5,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.07em",fontWeight:600}}>{k.l}</div>
-              <div style={{fontSize:17,fontWeight:800,color:k.a,lineHeight:1.3,marginTop:1}}>
-                {k.v}<span style={{fontSize:9,fontWeight:500,color:"rgba(255,255,255,0.35)",marginLeft:2}}>{k.u}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </header>
-
-      {/* TAB NAV */}
-      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",display:"flex",
-        padding:"0 20px",flexShrink:0,boxShadow:"0 1px 4px rgba(0,0,0,0.04)"}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{padding:"12px 18px",background:"transparent",border:"none",
-              borderBottom:`2.5px solid ${tab===t.id?"#0e7490":"transparent"}`,
-              cursor:"pointer",fontSize:13,fontWeight:tab===t.id?700:500,
-              color:tab===t.id?"#0a2342":"#94a3b8",display:"flex",alignItems:"center",
-              gap:7,transition:"all 0.15s",marginBottom:-1,whiteSpace:"nowrap"}}>
-            <span>{t.icon}</span>{t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* PAGE CONTENT */}
-      <div style={{flex:1,minHeight:0,overflow:"hidden"}} className="pg" key={tab}>
-        {tab==="status"&&<Page1 selectedSite={selectedSite} setSelectedSite={setSelectedSite}/>}
-        {tab==="input"&&<Page2 selectedSite={selectedSite} setSelectedSite={setSelectedSite}/>}
-        {tab==="impact"&&<Page3 selectedSite={selectedSite} setSelectedSite={setSelectedSite}/>}
-      </div>
-
-      {/* FOOTER */}
-      <footer style={{background:"#0a2342",padding:"5px 20px",display:"flex",
-        justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-        <p style={{fontSize:8.5,color:"rgba(255,255,255,0.3)"}}>
-          Canopy data: KelpWatch / Landsat · Dive data: field logs · Demo site: Caspar Cove, Mendocino County
-        </p>
-        <p style={{fontSize:8.5,color:"rgba(255,255,255,0.2)"}}>
-          California Kelp Restoration Initiative · v2.0 · Data through Jun 2024
-        </p>
-      </footer>
-    </div>
-  );
+function exportCSV(){
+  const site=SITES[currentP3Site];
+  const rows=[["Date","Divers","Bottom Time","Max Depth","Water Temp","Visibility","Surge",...CELLS.map(c=>`Cell ${c}`),"Total","Comments","Exit"]];
+  site.dives.forEach(d=>{const t=Object.values(d.cells||{}).reduce((a,b)=>a+b,0);rows.push([d.date,d.divers,d.bottomTime,d.maxDepth,d.waterTemp,d.visibility,d.surge,...CELLS.map(c=>d.cells?.[c]||0),t,`"${d.comments}"`,d.exitConditions]);});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([rows.map(r=>r.join(",")).join("\n")],{type:"text/csv"}));a.download=`${site.id}.csv`;a.click();
 }
+function exportJSON(){
+  const site=SITES[currentP3Site];
+  const data=JSON.stringify({site:site.id,name:site.name,dives:site.dives,canopy:site.canopy,cellTotals:cellTotals(site)},null,2);
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));a.download=`${site.id}.json`;a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════════════════
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    const page=document.getElementById(btn.dataset.tab);
+    page.classList.add("active");
+    if(btn.dataset.tab==="p3"){renderP3Tabs();renderP3();}
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HEADER STATS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderHeaderStats(){
+  const t=programTotals();
+  document.getElementById("hs-hrs").innerHTML=`${t.hrs}<span class="hstat-unit">hrs</span>`;
+  document.getElementById("hs-urchins").textContent=t.urchins.toLocaleString();
+  document.getElementById("hs-ha").innerHTML=`${t.ha}<span class="hstat-unit">ha</span>`;
+  document.getElementById("hs-dives").textContent=t.dives;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+renderHeaderStats();
+buildMap();
+renderP1();
+renderP2Sites();
+renderCellInputs();
+</script>
+</body>
+</html>
