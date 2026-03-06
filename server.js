@@ -34,6 +34,12 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`🌿 Kelp dashboard running at http://localhost:${PORT}`);
-});
+// For Vercel serverless
+export default app;
+
+// For local development
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(PORT, () => {
+    console.log(`ðŸŒ¿ Kelp dashboard running at http://localhost:${PORT}`);
+  });
+}
