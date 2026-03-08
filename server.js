@@ -8,10 +8,8 @@ const PORT = process.env.PORT || 3000;
 
 const SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQbkVbQfGkr9yaJ5bj1KUjjHQ9Dq8OfTUrtDU7jpIvcIF3isKSspT_ywCIOUlMl-tbw_-b1iTcyN6Do/pub?output=csv&gid=1680084585";
 
-// â”€â”€ Serve static files from /public
 app.use(express.static(path.join(__dirname, "public")));
 
-// â”€â”€ API: proxy Google Sheets CSV (avoids browser CORS restriction)
 app.get("/api/dives", async (req, res) => {
   try {
     const response = await fetch(SHEETS_CSV_URL);
@@ -20,7 +18,7 @@ app.get("/api/dives", async (req, res) => {
     }
     const csv = await response.text();
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Cache-Control", "public, max-age=3600"); // cache 1hr
+    res.setHeader("Cache-Control", "public, max-age=3600");
     res.send(csv);
   } catch (err) {
     console.error("Failed to fetch dive data:", err.message);
@@ -28,17 +26,12 @@ app.get("/api/dives", async (req, res) => {
   }
 });
 
-// â”€â”€ Fallback: serve index.html for any unmatched route
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// For Vercel serverless
 export default app;
 
-// For local development
-if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(PORT, () => {
-    console.log(`ðŸŒ¿ Kelp dashboard running at http://localhost:${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`🌿 Kelp dashboard running at http://localhost:${PORT}`);
+});
