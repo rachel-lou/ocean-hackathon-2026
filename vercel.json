@@ -1,8 +1,13 @@
 {
   "version": 2,
   "functions": {
-    "api/dives.cjs": {
+    "api/dives.js": {
       "runtime": "nodejs20.x"
     }
-  }
+  },
+  "routes": [
+    { "src": "/api/dives", "dest": "/api/dives.js" },
+    { "src": "/kelp.csv", "dest": "/public/kelp.csv" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ]
 }
